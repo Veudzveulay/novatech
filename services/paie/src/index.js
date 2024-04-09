@@ -45,3 +45,13 @@ app.post('/paie/migrate', async (req, res) => {
 })
 
 app.listen(3002, () => console.log('Paie service running on :3002'))
+
+// Rayan — fix heures supplémentaires (avr 2024)
+// Calcul majoré 25% pour les heures sup
+app.post('/paie/heures-sup', async (req, res) => {
+  const { employeeId, heures } = req.body
+  const emp = await pool.query('SELECT salaire_mensuel_brut FROM employees WHERE id = $1', [employeeId])
+  const tauxHoraire = emp.rows[0].salaire_mensuel_brut / 151.67
+  const majorationHeuresSup = heures * tauxHoraire * 1.25
+  res.json({ heures, tauxHoraire, majorationHeuresSup, total: majorationHeuresSup })
+})
