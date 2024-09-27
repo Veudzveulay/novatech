@@ -1,96 +1,76 @@
 # 📋 ShipIt — Prise en main du repo NovaTech HRFlow
 
-Bienvenue sur le repository de NovaTech HRFlow.  
-Ce repo est celui que vous avez reçu de **Théo Marchand** (Lead Dev) la veille de votre arrivée.
-
----
+Bienvenue sur le repository reçu de Théo Marchand la veille de votre arrivée.
 
 ## 🎯 Votre mission — Jour 1 matin
 
-Avant de toucher une seule ligne de code, vous devez **auditer ce repo de fond en comble**.  
-Un audit rigoureux en J1 est la base de tout ce qui suivra. Bâcler cette étape, c'est partir sur du sable.
+Avant de toucher une seule ligne de code : **auditer ce repo de fond en comble**.
+Un audit rigoureux en J1 est la base de tout ce qui suivra.
 
----
-
-## 📂 Ce que vous avez
+## 📂 Structure du projet
 
 ```
 novatech-hrflow/
-├── .env                          ← à examiner en priorité
+├── .env                          ← à examiner en PRIORITÉ
 ├── .github/workflows/deploy.yml  ← le pipeline actuel
 ├── .gitignore                    ← est-il bien configuré ?
 ├── README.md                     ← quelle est sa qualité ?
 ├── docs/
-│   ├── architecture.md           ← état de la documentation
-│   ├── audit-partech-sept-2024.md  ← rapport d'audit complet
-│   └── incident-aout-2024.md     ← post-mortem P1
-├── frontend/                     ← app React
-├── nginx/hrflow.conf             ← configuration serveur
-├── scripts/deploy.sh             ← processus de déploiement actuel
+│   ├── architecture.md
+│   ├── audit-partech-septembre-2024.md  ← rapport d'audit Partech
+│   └── incident-aout-2024.md           ← post-mortem P1
+├── frontend/
+├── nginx/hrflow.conf
+├── scripts/deploy.sh
 └── services/
-    ├── api-gateway/              ← point d'entrée de l'API
-    ├── auth/                     ← authentification & JWT
-    ├── conges/                   ← gestion des congés
-    ├── paie/                     ← calcul et émission des bulletins
-    └── recrutement/              ← gestion des candidatures
+    ├── api-gateway/
+    ├── auth/           ← sécurité auth
+    ├── conges/         ← gestion congés
+    ├── paie/           ← calcul bulletins de paie
+    └── recrutement/    ← candidatures
 ```
 
----
-
 ## 🔍 Grille d'audit J1 — à compléter en équipe
-
-Pour chaque service et chaque fichier de configuration, documentez :
 
 ### A. Sécurité
 - [ ] Y a-t-il des secrets, tokens ou mots de passe exposés ? Où ?
 - [ ] Les endpoints sont-ils protégés par authentification ?
-- [ ] Y a-t-il des vulnérabilités évidentes dans le code (injection, CORS, upload...) ?
-- [ ] La configuration Nginx expose-t-elle des données sensibles ?
+- [ ] Vulnérabilités dans le code (injection, CORS, upload, debug...) ?
 
-### B. Qualité du code
-- [ ] Y a-t-il des tests ? Fonctionnent-ils ?
-- [ ] Y a-t-il de la gestion d'erreurs ? Est-elle correcte ?
-- [ ] Quels sont les TODO/FIXME présents ? Lesquels sont critiques ?
-- [ ] Y a-t-il du code mort ou des fichiers qui ne devraient pas être là ?
+### B. Historique Git — lisez-le entièrement
+- [ ] `git log --oneline --all --graph` — combien de branches ? lesquelles ?
+- [ ] Quels auteurs ont contribué ? Quels patterns dans leurs messages ?
+- [ ] Y a-t-il des commits de revert ? Que révèlent-ils ?
+- [ ] Y a-t-il des branches abandonnées ? Que contiennent-elles ?
+- [ ] Quels fichiers ont le plus changé ? Pourquoi ?
 
 ### C. Pipeline CI/CD
 - [ ] Que fait réellement le pipeline actuel ?
-- [ ] Qu'est-ce qui manque ? Dans quel ordre le rajouter ?
-- [ ] Sur quelles branches se déclenche-t-il ? Est-ce correct ?
-- [ ] Quelle version de Node.js est utilisée ? Est-ce à jour ?
+- [ ] Sur quelles branches se déclenche-t-il ?
+- [ ] Qu'est-ce qui manque ?
 
-### D. Infrastructure & déploiement
-- [ ] Comment se fait le déploiement aujourd'hui ? Quels sont les risques ?
+### D. Infrastructure
+- [ ] Comment se fait le déploiement aujourd'hui ? Risques ?
 - [ ] Y a-t-il un monitoring ? Un alerting ? Des backups ?
-- [ ] L'environnement staging est-il correctement isolé ?
 
 ### E. Documentation
-- [ ] Le README permet-il à quelqu'un de nouveau de démarrer le projet ?
-- [ ] L'architecture est-elle documentée quelque part ?
-- [ ] Existe-t-il une procédure d'incident ou de rollback ?
+- [ ] Le README est-il utilisable ?
+- [ ] L'architecture est-elle documentée ?
 
----
+## 📊 Livrable attendu fin de J1
 
-## 📊 Livrable attendu en fin de J1
+1. **Liste priorisée des problèmes** (Critique / Élevé / Moyen / Faible)
+2. **Schéma d'architecture** de l'existant (draw.io ou Excalidraw)
+3. **Plan de remédiation** ordonné et justifié
+4. **Architecture cible du pipeline** (5 stages)
 
-Un **rapport d'audit structuré** (peut être un Notion, Google Doc ou Markdown) avec :
+> 💡 Lisez d'abord `docs/audit-partech-septembre-2024.md` et `docs/incident-aout-2024.md`.
+> Ensuite faites votre propre analyse — vous trouverez des problèmes que Partech n'a pas listés.
 
-1. **Liste priorisée des problèmes** identifiés (classés par criticité : Critique / Élevé / Moyen / Faible)
-2. **Schéma d'architecture** de l'existant (draw.io, Excalidraw ou équivalent) — 4 services + gateway + BDD
-3. **Plan de remédiation** : dans quel ordre allez-vous corriger les problèmes ? Pourquoi cet ordre ?
-4. **Architecture cible du pipeline** : schéma des 5 stages que vous allez construire
+## ⚠️ Règles
+- Ne pas pusher sur `main` sans pipeline qui passe
+- Ne pas déployer en production avant J3
+- Documenter chaque décision
+- Tous les membres doivent comprendre tout le code
 
-> 💡 **Conseil** : lisez d'abord le rapport d'audit Partech (`docs/audit-partech-sept-2024.md`) et le post-mortem de l'incident P1 (`docs/incident-aout-2024.md`). Ils vous donnent une lecture critique de l'état du système — mais faites votre propre analyse : vous pourrez trouver des problèmes que Partech n'a pas listés.
-
----
-
-## ⚠️ Règles importantes
-
-- **Ne pas pusher sur `main` sans pipeline qui passe** — vous connaissez les conséquences
-- **Ne pas déployer en production avant J3** — environment staging d'abord
-- **Documenter chaque décision** : pourquoi ce choix d'outil ? pourquoi cette stratégie de branchement ?
-- **Tous les membres doivent comprendre tout le code** — le jury interrogera chacun individuellement
-
----
-
-*NovaTech HRFlow — Document fourni le Jour 1 par Théo Marchand — Confidentiel*
+*Document fourni le Jour 1 par Théo Marchand*
