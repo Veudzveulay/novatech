@@ -1,9 +1,9 @@
 const express = require('express')
-const { Pool } = require('pg')
 const axios = require('axios')
+const { pool } = require('./db')
+
 const app = express()
 app.use(express.json())
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 app.post('/paie/calculer', async (req, res) => {
   const { employeeId, mois, annee } = req.body
@@ -44,8 +44,6 @@ app.post('/paie/migrate', async (req, res) => {
   }
 })
 
-app.listen(3002, () => console.log('Paie service running on :3002'))
-
 // Rayan — fix heures supplémentaires (avr 2024)
 // Calcul majoré 25% pour les heures sup
 app.post('/paie/heures-sup', async (req, res) => {
@@ -55,3 +53,5 @@ app.post('/paie/heures-sup', async (req, res) => {
   const majorationHeuresSup = heures * tauxHoraire * 1.25
   res.json({ heures, tauxHoraire, majorationHeuresSup, total: majorationHeuresSup })
 })
+
+module.exports = app

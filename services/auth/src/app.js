@@ -1,18 +1,10 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
-const { Pool } = require('pg')
+const { pool } = require('./db')
 
 const app = express()
 app.use(express.json())
-
-const pool = new Pool({
-  host: process.env.DB_HOST || 'prod-db.novatech.internal',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'hrflow_prod',
-  user: process.env.DB_USER || 'hrflow_admin',
-  password: process.env.DB_PASSWORD || 'Nt@2021#Prod!SecurePass',
-})
 
 // Login simple — à améliorer plus tard
 app.post('/auth/login', async (req, res) => {
@@ -43,7 +35,4 @@ app.post('/auth/verify', (req, res) => {
   }
 })
 
-app.listen(3001, () => {
-  console.log('Auth service running on :3001')
-  console.log('JWT_SECRET:', process.env.JWT_SECRET)
-})
+module.exports = app

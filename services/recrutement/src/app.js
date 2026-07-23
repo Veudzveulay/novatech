@@ -1,13 +1,13 @@
 const express = require('express')
 const multer = require('multer')
-const { Pool } = require('pg')
+const { pool } = require('./db')
+
 const app = express()
 app.use(express.json())
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 // Upload CV sans validation du type (Rayan — sept 2023)
 const storage = multer.diskStorage({
-  destination: '/tmp/uploads/',
+  destination: process.env.UPLOAD_DIR || '/tmp/uploads/',
   filename: (req, file, cb) => { cb(null, file.originalname) }
 })
 const upload = multer({ storage })
@@ -33,4 +33,4 @@ app.patch('/recrutement/candidat/:id/statut', async (req, res) => {
   res.json({ success: true })
 })
 
-app.listen(3004, () => console.log('Recrutement service running on :3004'))
+module.exports = app
