@@ -1,0 +1,36 @@
+# Configuration gitleaks — HRFlow
+#
+# Principe : AUCUNE exception n'est accordée aux secrets réels du dépôt.
+# Le fichier .env (commit 24b295b) et les secrets codés en dur dans le code
+# DOIVENT faire échouer ce contrôle tant qu'ils n'ont pas été purgés — c'est
+# la valeur même du stage Security. Voir docs/blocages-inter-livrables.md § B-02.
+#
+# Les seules exceptions ci-dessous concernent des données de TEST créées au J2,
+# volontairement factices. Toute nouvelle exception doit être justifiée ici,
+# datée, et associée à un responsable.
+
+title = "HRFlow — règles de détection de secrets"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Données de test synthétiques introduites par le livrable L2"
+
+paths = [
+  # Hash bcrypt de mots de passe factices documentés en clair dans le fichier.
+  '''db/seed-test\.sql''',
+  # Secrets de test explicitement inertes (sk_test_dummy, secret JWT local).
+  '''tests/setup/env\.js''',
+  # Fixtures et assertions : les tests CITENT les secrets du dépôt pour prouver
+  # qu'ils sont exploitables. Les retirer reviendrait à supprimer la preuve.
+  '''tests/unit/.*\.test\.js''',
+  '''tests/integration/.*\.test\.js''',
+  '''tests/e2e/.*\.spec\.js''',
+  '''playwright\.config\.js''',
+]
+
+regexes = [
+  # Clés Stripe de test uniquement — le préfixe sk_live_ reste détecté.
+  '''sk_test_[A-Za-z0-9_]+''',
+]
