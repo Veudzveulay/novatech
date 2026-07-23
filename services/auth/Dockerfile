@@ -4,8 +4,8 @@ FROM node:20-bookworm-slim AS production-dependencies
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev --no-package-lock
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 FROM node:20-bookworm-slim AS runtime
 
