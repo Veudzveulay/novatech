@@ -6,7 +6,7 @@ déploiement.
 
 ## Modules prévus
 
-- `network` : VPC, sous-réseaux, routage et groupes de sécurité.
+- `network` : VPC, sous-réseaux publics et privés, et routage sans NAT.
 - `ecr` : repositories des six composants et politiques de cycle de vie.
 - `alb` : Application Load Balancer, listeners, règles et target groups.
 - `ecs-service` : cluster, task definitions, services Fargate et journaux.
@@ -17,6 +17,24 @@ déploiement.
 
 Chaque module est actuellement un squelette documenté. Les interfaces ne seront
 complétées qu'avec des besoins confirmés afin de ne pas inventer de paramètres.
+
+### Réseau du workshop
+
+Le module `network` définit un VPC avec DNS activé et répartit deux subnets
+publics et deux subnets privés sur deux zones de disponibilité configurables.
+Les subnets publics disposent d'une route vers une Internet Gateway et sont
+destinés au futur ALB. Les subnets privés n'ont aucune route Internet et sont
+destinés à PostgreSQL.
+
+Aucun NAT Gateway ni NAT Instance n'est prévu afin de respecter le budget AWS
+maximal de 50 €. Pour le workshop, les futures tâches ECS qui nécessitent un
+accès sortant pourront être placées dans les subnets publics avec une IP
+publique, tout en étant protégées en entrée par des Security Groups à définir
+dans une étape distincte. Ce compromis réduit le coût mais offre moins
+d'isolation qu'une architecture de production réelle, où les tâches seraient
+placées dans des subnets privés avec des VPC endpoints ou une sortie NAT
+contrôlée. Le code Terraform décrit seulement cette cible : aucune de ces
+ressources n'est déclarée comme déjà créée sur AWS.
 
 ## Environnements
 

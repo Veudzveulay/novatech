@@ -28,6 +28,16 @@ variable "availability_zones" {
   type        = list(string)
 }
 
+variable "public_subnet_cidrs" {
+  description = "Plages CIDR des deux subnets publics de staging."
+  type        = list(string)
+}
+
+variable "private_subnet_cidrs" {
+  description = "Plages CIDR des deux subnets privés de staging."
+  type        = list(string)
+}
+
 variable "budget_limit_eur" {
   description = "Limite budgétaire indicative de l'environnement, en euros."
   type        = number
