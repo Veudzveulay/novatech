@@ -1,0 +1,7 @@
+# Valeurs entièrement fictives : ne pas utiliser pour un déploiement réel.
+project_name       = "example-project"
+environment        = "production"
+aws_region         = "eu-west-3"
+vpc_cidr           = "10.20.0.0/16"
+availability_zones = ["eu-west-3a", "eu-west-3b"]
+budget_limit_eur   = 40
