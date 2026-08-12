@@ -36,6 +36,32 @@ placées dans des subnets privés avec des VPC endpoints ou une sortie NAT
 contrôlée. Le code Terraform décrit seulement cette cible : aucune de ces
 ressources n'est déclarée comme déjà créée sur AWS.
 
+### Cloisonnement par Security Groups
+
+Le module `security-groups` décrit trois groupes distincts, sans accès SSH :
+
+```text
+Internet --TCP/80--> ALB SG --TCP/80,3000--> ECS SG
+                                  ECS SG --TCP/3001-3004--> ECS SG
+                                  ECS SG --TCP/5432--> Database SG
+```
+
+Le futur ALB accepte uniquement HTTP 80 depuis Internet à ce stade ; HTTPS 443
+attend la confirmation du domaine et du certificat TLS. Le frontend sur 80 et
+l'API Gateway sur 3000 n'acceptent que le Security Group de l'ALB. Les services
+`auth`, `paie`, `conges` et `recrutement`, sur les ports 3001 à 3004, ne sont
+accessibles que par les tâches partageant le Security Group ECS. PostgreSQL sur
+5432 n'accepte que ce même Security Group ECS. Aucun port applicatif interne,
+PostgreSQL ou SSH n'est exposé publiquement.
+
+L'egress de l'ALB est limité aux ports applicatifs du Security Group ECS. Pour
+le workshop sans NAT Gateway, l'egress IPv4 des tâches ECS reste volontairement
+large afin de permettre PostgreSQL, ECR et les API externes. Une production
+réelle devrait le resserrer avec des règles ciblées, des tâches en subnets
+privés et des VPC endpoints ou une sortie NAT contrôlée. Ces groupes sont
+uniquement décrits par Terraform et ne sont pas déclarés comme existants sur
+AWS.
+
 ## Environnements
 
 `environments/staging` et `environments/production` sont des racines Terraform

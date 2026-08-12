@@ -27,3 +27,18 @@ output "private_route_table_id" {
   description = "Identifiant de la table de routage privée production."
   value       = module.network.private_route_table_id
 }
+
+output "alb_security_group_id" {
+  description = "Identifiant du Security Group ALB production."
+  value       = module.security_groups.alb_security_group_id
+}
+
+output "ecs_security_group_id" {
+  description = "Identifiant du Security Group ECS production."
+  value       = module.security_groups.ecs_security_group_id
+}
+
+output "database_security_group_id" {
+  description = "Identifiant du Security Group PostgreSQL production."
+  value       = module.security_groups.database_security_group_id
+}
