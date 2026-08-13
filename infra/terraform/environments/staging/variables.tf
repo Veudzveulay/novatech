@@ -64,3 +64,38 @@ variable "image_uris" {
     error_message = "Chaque image URI doit etre non vide et ne pas utiliser latest."
   }
 }
+
+variable "db_name" {
+  description = "Nom initial fictif ou reel de la base PostgreSQL staging."
+  type        = string
+}
+
+variable "db_username" {
+  description = "Nom non sensible de l'utilisateur maitre PostgreSQL staging."
+  type        = string
+}
+
+variable "db_instance_class" {
+  description = "Classe de l'instance RDS staging."
+  type        = string
+}
+
+variable "db_allocated_storage" {
+  description = "Stockage RDS staging alloue en GiB."
+  type        = number
+}
+
+variable "db_backup_retention_period" {
+  description = "Retention des sauvegardes automatiques staging en jours."
+  type        = number
+}
+
+variable "db_deletion_protection" {
+  description = "Protection contre la suppression de RDS staging."
+  type        = bool
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Autorise la suppression de RDS staging sans snapshot final."
+  type        = bool
+}

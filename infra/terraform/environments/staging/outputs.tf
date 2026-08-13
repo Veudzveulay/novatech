@@ -122,3 +122,33 @@ output "service_discovery_namespace_name" {
   description = "Nom DNS du namespace Cloud Map prive staging."
   value       = aws_service_discovery_private_dns_namespace.this.name
 }
+
+output "db_instance_id" {
+  description = "Identifiant de l'instance RDS PostgreSQL staging."
+  value       = module.database.db_instance_id
+}
+
+output "db_endpoint" {
+  description = "Endpoint de l'instance RDS PostgreSQL staging."
+  value       = module.database.db_endpoint
+}
+
+output "db_address" {
+  description = "Adresse DNS de l'instance RDS PostgreSQL staging."
+  value       = module.database.db_address
+}
+
+output "db_port" {
+  description = "Port de l'instance RDS PostgreSQL staging."
+  value       = module.database.db_port
+}
+
+output "db_name" {
+  description = "Nom initial de la base PostgreSQL staging."
+  value       = module.database.db_name
+}
+
+output "master_user_secret_arn" {
+  description = "ARN du secret maitre RDS staging gere par AWS."
+  value       = module.database.master_user_secret_arn
+}

@@ -15,9 +15,10 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `codedeploy` : déploiements Blue/Green et rollback applicatif.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
-À l'exception des modules `ecr`, `alb` et `ecs-service`, les modules non encore
-implémentés restent des squelettes documentés. Leurs interfaces ne seront
-complétées qu'avec des besoins confirmés afin de ne pas inventer de paramètres.
+À l'exception des modules `ecr`, `alb`, `ecs-service` et `database`, les modules
+non encore implémentés restent des squelettes documentés. Leurs interfaces ne
+seront complétées qu'avec des besoins confirmés afin de ne pas inventer de
+paramètres.
 
 ### Repositories ECR partagés
 
@@ -184,6 +185,45 @@ n'est toujours pas confirmé pour `auth`, `paie`, `conges` et `recrutement`, et
 aucune route n'est inventée par Terraform. Toutes les ressources ECS décrites
 restent potentielles : aucun cluster, service, rôle, namespace, log group ou
 task definition n'a été créé sur AWS.
+
+### Base PostgreSQL RDS
+
+Le module `database` décrit une instance Amazon RDS PostgreSQL propre à chaque
+environnement. Staging et production ne partagent donc ni instance, ni base, ni
+DB subnet group, ni secret maître. Chaque DB subnet group utilise uniquement les
+deux subnets privés de son VPC. L'instance refuse l'accès public et utilise le
+Security Group database, qui n'autorise PostgreSQL 5432 que depuis le Security
+Group ECS.
+
+Le stockage est de type `gp3`, chiffré au repos et configurable à partir du
+minimum de 20 GiB retenu pour le workshop. Les exemples utilisent une petite
+classe `db.t4g.micro`, en Single-AZ. Aucune version PostgreSQL n'est figée : la
+version par défaut proposée par RDS devra être confirmée avant un futur
+déploiement autorisé. Une architecture de production réelle devrait fixer une
+version testée, réévaluer la classe et le stockage, et utiliser Multi-AZ selon
+les exigences de disponibilité.
+
+Le provider AWS 6.58.0 installé expose `manage_master_user_password`. Le module
+l'active afin que RDS génère et conserve le mot de passe maître dans AWS Secrets
+Manager. Aucun mot de passe n'entre dans Git, Terraform ou les exemples. Seul
+l'ARN calculé du secret est exposé pour une future étape d'injection ECS ; sa
+valeur n'est jamais sortie.
+
+Les sauvegardes automatiques sont activées par une rétention strictement
+positive : un jour dans l'exemple staging et sept jours dans l'exemple
+production. Cela remplace la dépendance exclusive à un backup manuel constatée
+lors de l'incident P1 et prépare une restauration à un instant dans la fenêtre
+de rétention prise en charge par RDS. Aucune restauration n'a toutefois été
+exécutée ou démontrée.
+
+Pour faciliter le nettoyage du sandbox, staging désactive la protection de
+suppression et autorise l'absence de snapshot final. L'exemple production active
+la protection et exige un snapshot final. Ces choix restent configurables et
+doivent être revus avant toute création. Deux instances facturées en continu
+peuvent peser fortement sur le budget de 50 euros : les petites classes,
+Single-AZ et une durée de vie courte du sandbox constituent un compromis de
+workshop, pas une architecture de production hautement disponible. Aucun RDS,
+subnet group, secret maître ou backup n'a été créé ni testé sur AWS.
 
 ## Environnements
 

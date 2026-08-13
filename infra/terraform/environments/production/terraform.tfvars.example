@@ -15,3 +15,10 @@ image_uris = {
   conges       = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/conges:sha-example"
   recrutement  = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/recrutement:sha-example"
 }
+db_name                    = "novatechproduction"
+db_username                = "production_admin"
+db_instance_class          = "db.t4g.micro"
+db_allocated_storage       = 20
+db_backup_retention_period = 7
+db_deletion_protection     = true
+db_skip_final_snapshot     = false

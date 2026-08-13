@@ -64,3 +64,38 @@ variable "image_uris" {
     error_message = "Chaque image URI doit etre non vide et ne pas utiliser latest."
   }
 }
+
+variable "db_name" {
+  description = "Nom initial fictif ou reel de la base PostgreSQL production."
+  type        = string
+}
+
+variable "db_username" {
+  description = "Nom non sensible de l'utilisateur maitre PostgreSQL production."
+  type        = string
+}
+
+variable "db_instance_class" {
+  description = "Classe de l'instance RDS production."
+  type        = string
+}
+
+variable "db_allocated_storage" {
+  description = "Stockage RDS production alloue en GiB."
+  type        = number
+}
+
+variable "db_backup_retention_period" {
+  description = "Retention des sauvegardes automatiques production en jours."
+  type        = number
+}
+
+variable "db_deletion_protection" {
+  description = "Protection contre la suppression de RDS production."
+  type        = bool
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Autorise la suppression de RDS production sans snapshot final."
+  type        = bool
+}

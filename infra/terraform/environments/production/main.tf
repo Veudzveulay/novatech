@@ -168,3 +168,19 @@ module "ecs_services" {
     module.alb
   ]
 }
+
+module "database" {
+  source = "../../modules/database"
+
+  project_name               = var.project_name
+  environment                = var.environment
+  private_subnet_ids         = module.network.private_subnet_ids
+  database_security_group_id = module.security_groups.database_security_group_id
+  db_name                    = var.db_name
+  db_username                = var.db_username
+  instance_class             = var.db_instance_class
+  allocated_storage          = var.db_allocated_storage
+  backup_retention_period    = var.db_backup_retention_period
+  deletion_protection        = var.db_deletion_protection
+  skip_final_snapshot        = var.db_skip_final_snapshot
+}
