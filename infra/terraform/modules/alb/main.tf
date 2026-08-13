@@ -84,8 +84,13 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this["frontend-blue"].arn
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not found"
+      status_code  = "404"
+    }
   }
 
   tags = local.common_tags
@@ -96,8 +101,19 @@ resource "aws_lb_listener_rule" "api_gateway" {
   priority     = 100
 
   action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this["api-gateway-blue"].arn
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.this["api-gateway-blue"].arn
+        weight = 1
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.this["api-gateway-green"].arn
+        weight = 0
+      }
+    }
   }
 
   condition {
@@ -107,4 +123,147 @@ resource "aws_lb_listener_rule" "api_gateway" {
   }
 
   tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [action[0].forward[0].target_group]
+  }
+}
+
+resource "aws_lb_listener_rule" "api_gateway_preview" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 10
+
+  action {
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.this["api-gateway-blue"].arn
+        weight = 0
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.this["api-gateway-green"].arn
+        weight = 1
+      }
+    }
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-NovaTech-Preview"
+      values           = ["api-gateway"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = var.api_path_patterns
+    }
+  }
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [action[0].forward[0].target_group]
+  }
+}
+
+resource "aws_lb_listener_rule" "frontend" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 200
+
+  action {
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.this["frontend-blue"].arn
+        weight = 1
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.this["frontend-green"].arn
+        weight = 0
+      }
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [action[0].forward[0].target_group]
+  }
+}
+
+resource "aws_lb_listener_rule" "frontend_preview" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 20
+
+  action {
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.this["frontend-blue"].arn
+        weight = 0
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.this["frontend-green"].arn
+        weight = 1
+      }
+    }
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-NovaTech-Preview"
+      values           = ["frontend"]
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [action[0].forward[0].target_group]
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "unhealthy_hosts" {
+  for_each = local.target_groups
+
+  alarm_name          = "${local.name_prefix}-${each.key}-unhealthy"
+  alarm_description   = "Detecte au moins une cible unhealthy pour ${each.key}."
+  namespace           = "AWS/ApplicationELB"
+  metric_name         = "UnHealthyHostCount"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    LoadBalancer = aws_lb.this.arn_suffix
+    TargetGroup  = aws_lb_target_group.this[each.key].arn_suffix
+  }
+
+  tags = merge(local.common_tags, {
+    Component = each.value.component
+    Color     = each.value.color
+  })
 }

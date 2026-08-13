@@ -112,6 +112,58 @@ variable "target_group_arn" {
   nullable    = true
 }
 
+variable "deployment_strategy" {
+  description = "Strategie de deploiement ECS : ROLLING ou BLUE_GREEN."
+  type        = string
+  default     = "ROLLING"
+
+  validation {
+    condition     = contains(["ROLLING", "BLUE_GREEN"], var.deployment_strategy)
+    error_message = "deployment_strategy doit valoir ROLLING ou BLUE_GREEN."
+  }
+}
+
+variable "bake_time_in_minutes" {
+  description = "Duree de conservation de Blue apres bascule, requise en mode BLUE_GREEN."
+  type        = number
+  default     = null
+  nullable    = true
+}
+
+variable "alternate_target_group_arn" {
+  description = "ARN du target group alternatif utilise en mode BLUE_GREEN."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "production_listener_rule_arn" {
+  description = "ARN de la listener rule de production geree par ECS en mode BLUE_GREEN."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "test_listener_rule_arn" {
+  description = "ARN facultatif de la listener rule de test geree par ECS en mode BLUE_GREEN."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "deployment_alarm_names" {
+  description = "Noms des alarmes CloudWatch surveillees par ECS pendant un deploiement."
+  type        = list(string)
+  default     = []
+}
+
+variable "ecs_infrastructure_role_arn" {
+  description = "ARN du role infrastructure permettant a ECS de gerer le routage ALB Blue/Green."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 variable "service_discovery_registry_arn" {
   description = "ARN facultatif du service Cloud Map interne."
   type        = string

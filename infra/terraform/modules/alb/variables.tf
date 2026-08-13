@@ -53,9 +53,9 @@ variable "alb_security_group_id" {
 }
 
 variable "frontend_health_check_path" {
-  description = "Chemin de sante du frontend ; racine provisoire tant que Nginx ne fournit pas /health."
+  description = "Chemin de sante Nginx du frontend."
   type        = string
-  default     = "/"
+  default     = "/health"
 
   validation {
     condition     = startswith(var.frontend_health_check_path, "/")

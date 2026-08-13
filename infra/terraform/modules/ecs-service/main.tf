@@ -75,13 +75,36 @@ resource "aws_ecs_service" "this" {
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
-  deployment_minimum_healthy_percent = 100
-  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = var.deployment_strategy == "ROLLING" ? 100 : null
+  deployment_maximum_percent         = var.deployment_strategy == "ROLLING" ? 200 : null
   health_check_grace_period_seconds  = var.target_group_arn == null ? null : 60
 
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+  deployment_controller {
+    type = "ECS"
+  }
+
+  deployment_configuration {
+    strategy             = var.deployment_strategy
+    bake_time_in_minutes = var.deployment_strategy == "BLUE_GREEN" ? tostring(var.bake_time_in_minutes) : null
+  }
+
+  dynamic "alarms" {
+    for_each = var.deployment_strategy == "BLUE_GREEN" && length(var.deployment_alarm_names) > 0 ? [1] : []
+
+    content {
+      alarm_names = var.deployment_alarm_names
+      enable      = true
+      rollback    = true
+    }
+  }
+
+  dynamic "deployment_circuit_breaker" {
+    for_each = var.deployment_strategy == "ROLLING" ? [1] : []
+
+    content {
+      enable   = true
+      rollback = true
+    }
   }
 
   network_configuration {
@@ -97,6 +120,17 @@ resource "aws_ecs_service" "this" {
       target_group_arn = load_balancer.value
       container_name   = var.component_name
       container_port   = var.container_port
+
+      dynamic "advanced_configuration" {
+        for_each = var.deployment_strategy == "BLUE_GREEN" ? [1] : []
+
+        content {
+          alternate_target_group_arn = var.alternate_target_group_arn
+          production_listener_rule   = var.production_listener_rule_arn
+          test_listener_rule         = var.test_listener_rule_arn
+          role_arn                   = var.ecs_infrastructure_role_arn
+        }
+      }
     }
   }
 

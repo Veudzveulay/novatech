@@ -63,6 +63,36 @@ output "http_listener_arn" {
   value       = module.alb.http_listener_arn
 }
 
+output "frontend_production_listener_rule_arn" {
+  description = "ARN de la regle de production frontend staging."
+  value       = module.alb.frontend_production_listener_rule_arn
+}
+
+output "api_gateway_production_listener_rule_arn" {
+  description = "ARN de la regle de production API Gateway staging."
+  value       = module.alb.api_gateway_production_listener_rule_arn
+}
+
+output "frontend_test_listener_rule_arn" {
+  description = "ARN de la regle de preview Green frontend staging."
+  value       = module.alb.frontend_test_listener_rule_arn
+}
+
+output "api_gateway_test_listener_rule_arn" {
+  description = "ARN de la regle de preview Green API Gateway staging."
+  value       = module.alb.api_gateway_test_listener_rule_arn
+}
+
+output "target_group_health_alarm_names" {
+  description = "Noms des alarmes de sante blue et green staging par composant."
+  value       = module.alb.target_group_health_alarm_names
+}
+
+output "target_group_health_alarm_arns" {
+  description = "ARN des alarmes de sante blue et green staging par composant."
+  value       = module.alb.target_group_health_alarm_arns
+}
+
 output "frontend_target_group_arn" {
   description = "ARN du target group frontend blue staging."
   value       = module.alb.frontend_target_group_arn
@@ -91,6 +121,11 @@ output "ecs_cluster_id" {
 output "ecs_cluster_name" {
   description = "Nom du cluster ECS staging."
   value       = aws_ecs_cluster.this.name
+}
+
+output "ecs_infrastructure_role_arn" {
+  description = "ARN du role infrastructure ECS Blue/Green staging."
+  value       = aws_iam_role.ecs_infrastructure.arn
 }
 
 output "ecs_service_names" {

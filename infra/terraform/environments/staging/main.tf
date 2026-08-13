@@ -30,28 +30,40 @@ module "alb" {
 locals {
   components = {
     frontend = {
-      port             = 80
-      target_group_arn = module.alb.frontend_target_group_arn
+      port                         = 80
+      target_group_arn             = module.alb.frontend_target_group_arns.blue
+      alternate_target_group_arn   = module.alb.frontend_target_group_arns.green
+      production_listener_rule_arn = module.alb.frontend_production_listener_rule_arn
+      test_listener_rule_arn       = module.alb.frontend_test_listener_rule_arn
+      deployment_strategy          = "BLUE_GREEN"
     }
     api-gateway = {
-      port             = 3000
-      target_group_arn = module.alb.api_gateway_target_group_arn
+      port                         = 3000
+      target_group_arn             = module.alb.api_gateway_target_group_arns.blue
+      alternate_target_group_arn   = module.alb.api_gateway_target_group_arns.green
+      production_listener_rule_arn = module.alb.api_gateway_production_listener_rule_arn
+      test_listener_rule_arn       = module.alb.api_gateway_test_listener_rule_arn
+      deployment_strategy          = "BLUE_GREEN"
     }
     auth = {
-      port             = 3001
-      target_group_arn = null
+      port                = 3001
+      target_group_arn    = null
+      deployment_strategy = "ROLLING"
     }
     paie = {
-      port             = 3002
-      target_group_arn = null
+      port                = 3002
+      target_group_arn    = null
+      deployment_strategy = "ROLLING"
     }
     conges = {
-      port             = 3003
-      target_group_arn = null
+      port                = 3003
+      target_group_arn    = null
+      deployment_strategy = "ROLLING"
     }
     recrutement = {
-      port             = 3004
-      target_group_arn = null
+      port                = 3004
+      target_group_arn    = null
+      deployment_strategy = "ROLLING"
     }
   }
 
@@ -149,6 +161,28 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role" "ecs_infrastructure" {
+  name = "${var.project_name}-${var.environment}-ecs-infrastructure"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_infrastructure_load_balancers" {
+  role       = aws_iam_role.ecs_infrastructure.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInfrastructureRolePolicyForLoadBalancers"
+}
+
 module "secrets" {
   source = "../../modules/secrets"
 
@@ -220,11 +254,19 @@ module "ecs_services" {
   environment_variables          = local.environment_variables[each.key]
   secret_variables               = local.secret_variables[each.key]
   target_group_arn               = each.value.target_group_arn
+  deployment_strategy            = each.value.deployment_strategy
+  bake_time_in_minutes           = each.value.deployment_strategy == "BLUE_GREEN" ? 5 : null
+  alternate_target_group_arn     = try(each.value.alternate_target_group_arn, null)
+  production_listener_rule_arn   = try(each.value.production_listener_rule_arn, null)
+  test_listener_rule_arn         = try(each.value.test_listener_rule_arn, null)
+  ecs_infrastructure_role_arn    = each.value.deployment_strategy == "BLUE_GREEN" ? aws_iam_role.ecs_infrastructure.arn : null
+  deployment_alarm_names         = each.value.deployment_strategy == "BLUE_GREEN" ? module.alb.target_group_health_alarm_names[each.key] : []
   service_discovery_registry_arn = contains(keys(local.internal_components), each.key) ? aws_service_discovery_service.internal[each.key].arn : null
 
   depends_on = [
     aws_iam_role_policy_attachment.ecs_task_execution,
     aws_iam_role_policy.ecs_task_execution_secrets,
+    aws_iam_role_policy_attachment.ecs_infrastructure_load_balancers,
     module.alb
   ]
 }

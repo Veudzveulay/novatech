@@ -12,7 +12,7 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `ecs-service` : cluster, task definitions, services Fargate et journaux.
 - `database` : base PostgreSQL RDS, subnet group et protections associées.
 - `secrets` : conteneurs Secrets Manager et droits d'accès minimaux.
-- `codedeploy` : déploiements Blue/Green et rollback applicatif.
+- `codedeploy` : squelette conservé mais non utilisé ; le Blue/Green est géré nativement par ECS.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
 À l'exception des modules `ecr`, `alb`, `ecs-service`, `database` et `secrets`, les modules
@@ -103,23 +103,30 @@ environnement, réparti sur les deux subnets publics et associé au Security Gro
 ALB existant. Seuls le frontend et l'API Gateway possèdent des target groups
 publics ; `auth`, `paie`, `conges` et `recrutement` restent internes.
 
-Le listener HTTP 80 envoie par défaut le trafic vers le frontend. Une règle de
-priorité 100 route `/api/*` vers l'API Gateway, conformément aux routes
-réellement déclarées par l'application. HTTPS n'est pas configuré tant qu'aucun
-domaine ni certificat ACM n'est confirmé.
+Le listener HTTP 80 possède deux règles de production distinctes : priorité 100
+pour `/api/*` vers l'API Gateway blue, puis priorité 200 pour `/*` vers le
+frontend blue. Son action par défaut est une réponse fixe HTTP 404. Cette
+structure fournit à ECS un ARN de listener rule propre à chaque service, sans
+second ALB ni port public supplémentaire. HTTPS n'est pas configuré tant
+qu'aucun domaine ni certificat ACM n'est confirmé.
 
 Les target groups utilisent `target_type = "ip"`, requis pour les futures tâches
-ECS Fargate en mode réseau `awsvpc`. L'API Gateway est contrôlée sur `/health`
-avec un matcher HTTP 200. Le frontend ne possède encore ni image Nginx ni route
-`/health` confirmée : son contrôle utilise provisoirement `/`, chemin réel de la
-SPA et variable du module. Il devra être remplacé par `/health` dès que la
-configuration Nginx correspondante sera implémentée et testée.
+ECS Fargate en mode réseau `awsvpc`. L'API Gateway et le frontend Nginx sont
+contrôlés sur `/health` avec un matcher HTTP 200, conformément aux validations
+applicatives et Docker locales.
 
 Deux target groups, blue et green, sont décrits pour chacun des deux composants
-publics. Le listener cible initialement les groupes blue ; les groupes green
-restent disponibles pour une future orchestration CodeDeploy sans imposer une
-refonte du module ALB. Aucun CodeDeploy ni basculement Blue/Green n'est configuré
-à cette étape.
+publics. Chaque règle de production associe les deux groupes dans une action
+forward pondérée : blue possède initialement le poids 1 et green le poids 0. Il
+y a donc exactement un groupe recevant du trafic. Les groupes green sont aussi
+déclarés comme groupes alternatifs dans la configuration Blue/Green native des
+services ECS.
+
+Deux règles de preview de priorités 10 et 20 précèdent les règles de production.
+Elles combinent le header `X-NovaTech-Preview` avec le chemin du composant et
+envoient initialement le trafic vers Green. Leurs ARN sont fournis à ECS comme
+`test_listener_rule`. Ce header n'est pas une authentification : il est adapté
+uniquement au workshop et aux health/smoke tests sans donnée sensible.
 
 Cette séparation prévoit potentiellement deux ALB facturés en continu, un pour
 staging et un pour production, en plus des unités de capacité consommées. Elle
@@ -168,16 +175,39 @@ Secrets Manager sont décrites dans la section suivante. Le code applicatif doit
 encore être adapté pour lire les URL de services au lieu des valeurs actuellement
 codées en dur.
 
-Le frontend est rattaché uniquement au target group frontend blue et l'API
-Gateway uniquement au target group API Gateway blue. Les quatre services métier
-n'ont aucun bloc load balancer et restent inaccessibles depuis l'ALB. Les target
-groups green ne sont pas utilisés avant l'étape CodeDeploy.
+Le frontend et l'API Gateway conservent le contrôleur `ECS` et utilisent la
+stratégie native `BLUE_GREEN`. Chacun déclare son target group blue principal,
+son target group green alternatif et sa listener rule de production. Le bake
+time est fixé à cinq minutes dans staging et production : c'est un compromis de
+démonstration et de coût, pas une durée déclarée optimale pour une vraie
+production. Aucun circuit breaker n'est configuré pour ces deux services à ce
+stade.
 
-Les services utilisent pour l'instant le contrôleur de déploiement ECS avec
-minimum sain à 100 %, maximum à 200 % et circuit breaker avec rollback. Passer
-frontend et API Gateway au contrôleur `CODE_DEPLOY` est volontairement différé
-jusqu'à la création cohérente des applications et deployment groups CodeDeploy ;
-les interfaces ALB blue/green évitent une refonte des target groups.
+Les noms blue et green désignent des target groups physiques ; leur rôle
+primaire ou alternatif peut changer au fil des déploiements. Chacun des quatre
+target groups possède donc une alarme `UnHealthyHostCount`. Deux périodes
+consécutives de 60 secondes avec au moins une cible unhealthy sont requises, et
+les données absentes restent non alarmantes. Chaque service public transmet ses
+deux alarmes au bloc ECS `alarms`, avec rollback activé. Les alarmes 5xx sont
+volontairement retirées pour conserver un livrable de workshop essentiel.
+
+Les quatre services internes utilisent `ROLLING`, avec minimum sain à 100 %,
+maximum à 200 %, circuit breaker et rollback automatique. Ils n'ont ni load
+balancer, ni target group alternatif, ni `advanced_configuration`.
+
+Chaque environnement crée un rôle infrastructure partagé par le frontend et
+l'API Gateway. Sa confiance est limitée à `ecs.amazonaws.com` et la policy AWS
+gérée `AmazonECSInfrastructureRolePolicyForLoadBalancers` lui permet de gérer
+les ressources ALB nécessaires. Le futur acteur de déploiement devra disposer
+d'un `iam:PassRole` ciblé vers ce rôle ; cette permission de pipeline n'est pas
+encore créée.
+
+ECS orchestre les poids des target groups pendant les déploiements. Le lifecycle
+des deux règles ignore donc uniquement
+`action[0].forward[0].target_group`, afin qu'un futur plan Terraform ne remette
+pas arbitrairement le trafic sur blue après une bascule réussie. Terraform
+continue de gérer le type et l'ordre de l'action, la priorité, les conditions et
+les tags ; aucun `ignore_changes = all` n'est utilisé.
 
 Pour éviter un NAT Gateway durant le workshop, les tâches utilisent les subnets
 publics avec `assign_public_ip = true`. Le Security Group ECS reste la barrière
