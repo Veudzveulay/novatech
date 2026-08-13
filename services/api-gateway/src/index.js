@@ -10,6 +10,8 @@ const serviceUrls = {
   recrutement: process.env.RECRUTEMENT_SERVICE_URL || 'http://localhost:3004',
 }
 
+const recruitmentEnabled = process.env.FEATURE_RECRUITMENT_ENABLED?.trim().toLowerCase() !== 'false'
+
 // CORS ouvert pour le dev — à restreindre en prod (TODO)
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
@@ -21,7 +23,12 @@ app.use((req, res, next) => {
 app.use('/api/auth', createProxyMiddleware({ target: serviceUrls.auth, changeOrigin: true }))
 app.use('/api/paie', createProxyMiddleware({ target: serviceUrls.paie, changeOrigin: true }))
 app.use('/api/conges', createProxyMiddleware({ target: serviceUrls.conges, changeOrigin: true }))
-app.use('/api/recrutement', createProxyMiddleware({ target: serviceUrls.recrutement, changeOrigin: true }))
+app.use('/api/recrutement', (req, res, next) => {
+  if (!recruitmentEnabled) {
+    return res.status(503).json({ error: 'Feature temporarily unavailable' })
+  }
+  next()
+}, createProxyMiddleware({ target: serviceUrls.recrutement, changeOrigin: true }))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 

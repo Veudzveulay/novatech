@@ -84,10 +84,11 @@ locals {
     },
     {
       api-gateway = merge(local.base_environment_variables["api-gateway"], {
-        AUTH_SERVICE_URL        = "http://auth.${local.service_discovery_namespace}:3001"
-        PAIE_SERVICE_URL        = "http://paie.${local.service_discovery_namespace}:3002"
-        CONGES_SERVICE_URL      = "http://conges.${local.service_discovery_namespace}:3003"
-        RECRUTEMENT_SERVICE_URL = "http://recrutement.${local.service_discovery_namespace}:3004"
+        AUTH_SERVICE_URL            = "http://auth.${local.service_discovery_namespace}:3001"
+        PAIE_SERVICE_URL            = "http://paie.${local.service_discovery_namespace}:3002"
+        CONGES_SERVICE_URL          = "http://conges.${local.service_discovery_namespace}:3003"
+        RECRUTEMENT_SERVICE_URL     = "http://recrutement.${local.service_discovery_namespace}:3004"
+        FEATURE_RECRUITMENT_ENABLED = tostring(var.feature_recruitment_enabled)
       })
     }
   )

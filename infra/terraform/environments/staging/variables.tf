@@ -99,3 +99,9 @@ variable "db_skip_final_snapshot" {
   description = "Autorise la suppression de RDS staging sans snapshot final."
   type        = bool
 }
+
+variable "feature_recruitment_enabled" {
+  description = "Active le routage de la fonctionnalite recrutement dans l'API Gateway staging."
+  type        = bool
+  default     = true
+}

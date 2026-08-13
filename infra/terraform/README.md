@@ -150,6 +150,14 @@ six composants et refuse `latest`. Les vraies valeurs devront utiliser
 contiennent que des comptes et tags fictifs. Staging et production ne dépendent
 pas directement du root ECR partagé.
 
+L'API Gateway reçoit aussi le flag non sensible
+`FEATURE_RECRUITMENT_ENABLED`, piloté par la variable booléenne
+`feature_recruitment_enabled` propre à chaque environnement. La valeur initiale
+est `true`; la passer à `false` bloque temporairement les routes recrutement.
+Comme la valeur appartient à la task definition, tout changement nécessite une
+nouvelle révision et un redéploiement du Gateway. Un mécanisme dynamique tel
+qu'AWS AppConfig reste une amélioration future et n'est pas implémenté ici.
+
 La découverte interne utilise AWS Cloud Map, solution DNS simple pour les
 services Fargate. Chaque environnement possède un namespace privé
 `<environment>.<project_name>.local`. Seuls `auth`, `paie`, `conges` et
