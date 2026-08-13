@@ -28,7 +28,11 @@ app.use('/api/recrutement', (req, res, next) => {
     return res.status(503).json({ error: 'Feature temporarily unavailable' })
   }
   next()
-}, createProxyMiddleware({ target: serviceUrls.recrutement, changeOrigin: true }))
+}, createProxyMiddleware({
+  target: serviceUrls.recrutement,
+  changeOrigin: true,
+  pathRewrite: { '^/api': '' },
+}))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 

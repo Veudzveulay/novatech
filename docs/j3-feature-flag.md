@@ -57,14 +57,15 @@ AWS AppConfig n'est pas implémenté dans ce livrable.
 - Syntaxe Node du Gateway : valide.
 - Flag `false`, processus local : `/health` HTTP 200 et route recrutement HTTP
   503 avec le JSON attendu, sans service recrutement démarré.
-- Flag `true`, processus local : `/health` HTTP 200 et requête transmise au
-  proxy. Avec le service recrutement actuel, la route de test renvoie ensuite
-  HTTP 404 en raison de la réécriture de chemin historique, hors périmètre du
-  flag ; elle n'est pas bloquée par le middleware 503.
+- Flag `true`, processus local : `/health` HTTP 200 et
+  `OPTIONS /api/recrutement/candidats` HTTP 200 via le vrai service recrutement,
+  sans exécuter de requête PostgreSQL. Le Gateway retire uniquement le préfixe
+  `/api` et transmet `/recrutement/candidats`, chemin réellement exposé par le
+  service.
 - Image `novatech/api-gateway:local` : reconstruction réussie.
 - Flag `false`, conteneur : `/health` HTTP 200 et recrutement HTTP 503 avant une
   cible volontairement indisponible.
-- Flag `true`, conteneur : `/health` HTTP 200 et proxy HTTP 200 vers une cible
-  locale temporaire.
+- Flag `true`, conteneurs Gateway et recrutement : `/health` HTTP 200 et
+  `OPTIONS /api/recrutement/candidats` HTTP 200 via le vrai service recrutement.
 - Tous les conteneurs et réseaux temporaires de cette démonstration ont été
   supprimés. Aucun test AWS n'a été exécuté.
