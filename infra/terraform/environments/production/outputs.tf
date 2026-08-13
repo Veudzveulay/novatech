@@ -82,3 +82,43 @@ output "api_gateway_target_group_arns" {
   description = "ARN blue et green des target groups API Gateway production."
   value       = module.alb.api_gateway_target_group_arns
 }
+
+output "ecs_cluster_id" {
+  description = "Identifiant du cluster ECS production."
+  value       = aws_ecs_cluster.this.id
+}
+
+output "ecs_cluster_name" {
+  description = "Nom du cluster ECS production."
+  value       = aws_ecs_cluster.this.name
+}
+
+output "ecs_service_names" {
+  description = "Noms des services ECS production indexes par composant."
+  value       = { for name, service in module.ecs_services : name => service.service_name }
+}
+
+output "ecs_service_arns" {
+  description = "ARN des services ECS production indexes par composant."
+  value       = { for name, service in module.ecs_services : name => service.service_arn }
+}
+
+output "task_definition_arns" {
+  description = "ARN des task definitions production indexes par composant."
+  value       = { for name, service in module.ecs_services : name => service.task_definition_arn }
+}
+
+output "log_group_names" {
+  description = "Noms des groupes CloudWatch Logs production indexes par composant."
+  value       = { for name, service in module.ecs_services : name => service.log_group_name }
+}
+
+output "service_discovery_namespace_id" {
+  description = "Identifiant du namespace Cloud Map prive production."
+  value       = aws_service_discovery_private_dns_namespace.this.id
+}
+
+output "service_discovery_namespace_name" {
+  description = "Nom DNS du namespace Cloud Map prive production."
+  value       = aws_service_discovery_private_dns_namespace.this.name
+}

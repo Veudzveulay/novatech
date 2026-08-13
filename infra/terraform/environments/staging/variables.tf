@@ -42,3 +42,25 @@ variable "budget_limit_eur" {
   description = "Limite budgétaire indicative de l'environnement, en euros."
   type        = number
 }
+
+variable "image_uris" {
+  description = "URI immuables fictives ou reelles des six images applicatives."
+  type        = map(string)
+
+  validation {
+    condition = toset(keys(var.image_uris)) == toset([
+      "frontend",
+      "api-gateway",
+      "auth",
+      "paie",
+      "conges",
+      "recrutement"
+    ])
+    error_message = "image_uris doit contenir exactement les six composants NovaTech."
+  }
+
+  validation {
+    condition     = alltrue([for uri in values(var.image_uris) : length(trimspace(uri)) > 0 && !can(regex(":latest$", uri))])
+    error_message = "Chaque image URI doit etre non vide et ne pas utiliser latest."
+  }
+}

@@ -15,9 +15,9 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `codedeploy` : déploiements Blue/Green et rollback applicatif.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
-À l'exception des modules `ecr` et `alb`, les modules non encore implémentés
-restent des squelettes documentés. Leurs interfaces ne seront complétées qu'avec
-des besoins confirmés afin de ne pas inventer de paramètres.
+À l'exception des modules `ecr`, `alb` et `ecs-service`, les modules non encore
+implémentés restent des squelettes documentés. Leurs interfaces ne seront
+complétées qu'avec des besoins confirmés afin de ne pas inventer de paramètres.
 
 ### Repositories ECR partagés
 
@@ -126,6 +126,64 @@ coûte davantage qu'un ALB partagé mais préserve l'isolation exigée entre les
 environnements. Le coût devra être estimé dans la région choisie avant toute
 création, et staging devra être conservé le moins longtemps possible pour rester
 dans le budget total de 50 euros. Aucun ALB ni target group n'a été créé sur AWS.
+
+### Socle ECS Fargate
+
+Chaque environnement décrit son propre cluster ECS et six services Fargate :
+`frontend`, `api-gateway`, `auth`, `paie`, `conges` et `recrutement`. Le module
+`ecs-service`, appelé avec `for_each`, crée pour chaque composant une task
+definition `awsvpc`, un service et un groupe CloudWatch Logs. Chaque tâche est
+dimensionnée à 256 unités CPU et 512 MiB, avec un exemplaire souhaité pour le
+workshop. Les ports sont strictement 80, 3000, 3001, 3002, 3003 et 3004 dans
+l'ordre des composants précédent.
+
+Les groupes de logs suivent `/<project_name>/<environment>/<component>` avec
+sept jours de rétention. Les task definitions activent `awslogs` et ne
+contiennent aucune variable sensible. Un rôle IAM d'exécution est partagé par
+les six tâches d'un environnement et reçoit uniquement la politique AWS standard
+permettant notamment le pull ECR et l'écriture des logs. Aucun task role métier,
+droit RDS ou droit Secrets Manager n'est ajouté.
+
+Les URI d'images arrivent par la variable `image_uris`, qui exige exactement les
+six composants et refuse `latest`. Les vraies valeurs devront utiliser
+`<repository-url>:sha-<git-sha>` ou un digest ECR ; les fichiers d'exemple ne
+contiennent que des comptes et tags fictifs. Staging et production ne dépendent
+pas directement du root ECR partagé.
+
+La découverte interne utilise AWS Cloud Map, solution DNS simple pour les
+services Fargate. Chaque environnement possède un namespace privé
+`<environment>.<project_name>.local`. Seuls `auth`, `paie`, `conges` et
+`recrutement` y sont enregistrés. L'API Gateway reçoit `AUTH_SERVICE_URL`,
+`PAIE_SERVICE_URL`, `CONGES_SERVICE_URL` et `RECRUTEMENT_SERVICE_URL`, en plus de
+`NODE_ENV` et `PORT`. Les autres composants reçoivent uniquement `NODE_ENV` et
+`PORT`. Le code applicatif doit encore être adapté pour lire ces variables au
+lieu des valeurs actuellement codées en dur.
+
+Le frontend est rattaché uniquement au target group frontend blue et l'API
+Gateway uniquement au target group API Gateway blue. Les quatre services métier
+n'ont aucun bloc load balancer et restent inaccessibles depuis l'ALB. Les target
+groups green ne sont pas utilisés avant l'étape CodeDeploy.
+
+Les services utilisent pour l'instant le contrôleur de déploiement ECS avec
+minimum sain à 100 %, maximum à 200 % et circuit breaker avec rollback. Passer
+frontend et API Gateway au contrôleur `CODE_DEPLOY` est volontairement différé
+jusqu'à la création cohérente des applications et deployment groups CodeDeploy ;
+les interfaces ALB blue/green évitent une refonte des target groups.
+
+Pour éviter un NAT Gateway durant le workshop, les tâches utilisent les subnets
+publics avec `assign_public_ip = true`. Le Security Group ECS reste la barrière
+d'entrée : cette configuration ne rend pas les services métier accessibles par
+l'ALB. Une production réelle devrait placer les tâches dans des subnets privés,
+avec des VPC endpoints ou une sortie NAT contrôlée. Les six tâches Fargate, leurs
+IPv4 publiques et les logs sont susceptibles d'être facturés et doivent rester
+actifs le moins longtemps possible dans la limite de 50 euros.
+
+RDS et Secrets Manager ne sont pas intégrés à cette étape. Les services qui en
+dépendent ne sont donc pas prêts à fonctionner réellement. De plus, `/health`
+n'est toujours pas confirmé pour `auth`, `paie`, `conges` et `recrutement`, et
+aucune route n'est inventée par Terraform. Toutes les ressources ECS décrites
+restent potentielles : aucun cluster, service, rôle, namespace, log group ou
+task definition n'a été créé sur AWS.
 
 ## Environnements
 
