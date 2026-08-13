@@ -1,8 +1,8 @@
 # Terraform — Livrable J3
 
 Ce dossier prépare l'Infrastructure as Code du livrable J3. À cette étape, il
-ne contient aucune ressource AWS et ne constitue donc pas une preuve de
-déploiement.
+décrit les repositories ECR, mais aucune ressource correspondante n'a été créée
+sur AWS et ce code ne constitue pas une preuve de déploiement.
 
 ## Modules prévus
 
@@ -15,8 +15,41 @@ déploiement.
 - `codedeploy` : déploiements Blue/Green et rollback applicatif.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
-Chaque module est actuellement un squelette documenté. Les interfaces ne seront
-complétées qu'avec des besoins confirmés afin de ne pas inventer de paramètres.
+À l'exception du module `ecr`, les modules non encore implémentés restent des
+squelettes documentés. Leurs interfaces ne seront complétées qu'avec des besoins
+confirmés afin de ne pas inventer de paramètres.
+
+### Repositories ECR partagés
+
+Le module `ecr` décrit exactement six repositories, nommés avec la convention
+`<project_name>/<component>` :
+
+- `frontend` ;
+- `api-gateway` ;
+- `auth` ;
+- `paie` ;
+- `conges` ;
+- `recrutement`.
+
+Ces repositories sont communs à staging et production. Ils sont instanciés une
+seule fois par le root `shared`, qui appelle uniquement le module ECR à cette
+étape et ne configure volontairement aucun backend distant. Les roots
+`environments/staging` et `environments/production` ne créent donc aucun
+repository ECR et ne risquent pas de se concurrencer sur les mêmes ressources.
+
+Chaque repository impose des tags immuables, active le scan au push et utilise
+le chiffrement AES-256 géré par AWS, suffisant pour le workshop sans coût ni
+gestion d'une clé KMS dédiée. Les images déployables devront porter un tag
+`sha-<git-sha>` ; `latest` est volontairement absent de la stratégie de
+déploiement. La production devra promouvoir le même tag SHA ou digest que celui
+validé en staging, sans reconstruire l'image.
+
+Une lifecycle policy par repository supprime les images non taguées après trois
+jours et conserve les dix images taguées `sha-` les plus récentes. Cette
+rétention simple limite le stockage ECR et contribue au respect du budget de
+50 euros. Le code décrit six repositories et six lifecycle policies potentiels,
+mais leur existence sur AWS ne pourra être affirmée qu'après une opération
+autorisée et démontrée.
 
 ### Réseau du workshop
 
@@ -70,6 +103,11 @@ isolés. Les artefacts applicatifs sont construits une fois : production doit
 promouvoir les mêmes images et digests ECR tagués avec le SHA Git qui ont été
 validés en staging, sans reconstruction et sans utiliser `latest`.
 
+`shared` est une troisième racine Terraform, indépendante des environnements,
+réservée aux ressources communes. Elle gère uniquement ECR à cette étape et
+expose les URLs, ARN et noms complets des repositories sous forme de maps
+indexées par composant pour les futurs workflows et task definitions ECS.
+
 La région, les zones de disponibilité, les CIDR et le backend d'état définitifs
 restent à confirmer. Aucun credential AWS n'est configuré dans ce dépôt.
 
@@ -79,6 +117,8 @@ Depuis la racine du dépôt :
 
 ```powershell
 terraform fmt -recursive infra/terraform
+terraform -chdir=infra/terraform/shared init -backend=false
+terraform -chdir=infra/terraform/shared validate
 terraform -chdir=infra/terraform/environments/staging init -backend=false
 terraform -chdir=infra/terraform/environments/staging validate
 terraform -chdir=infra/terraform/environments/production init -backend=false
