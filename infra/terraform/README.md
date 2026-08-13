@@ -15,7 +15,7 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `codedeploy` : déploiements Blue/Green et rollback applicatif.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
-À l'exception des modules `ecr`, `alb`, `ecs-service` et `database`, les modules
+À l'exception des modules `ecr`, `alb`, `ecs-service`, `database` et `secrets`, les modules
 non encore implémentés restent des squelettes documentés. Leurs interfaces ne
 seront complétées qu'avec des besoins confirmés afin de ne pas inventer de
 paramètres.
@@ -140,10 +140,9 @@ l'ordre des composants précédent.
 
 Les groupes de logs suivent `/<project_name>/<environment>/<component>` avec
 sept jours de rétention. Les task definitions activent `awslogs` et ne
-contiennent aucune variable sensible. Un rôle IAM d'exécution est partagé par
-les six tâches d'un environnement et reçoit uniquement la politique AWS standard
-permettant notamment le pull ECR et l'écriture des logs. Aucun task role métier,
-droit RDS ou droit Secrets Manager n'est ajouté.
+contiennent aucune valeur sensible. Un rôle IAM d'exécution est partagé par les
+six tâches d'un environnement ; ses droits Secrets Manager ciblés sont décrits
+plus bas. Aucun task role métier ni droit d'accès direct à RDS n'est ajouté.
 
 Les URI d'images arrivent par la variable `image_uris`, qui exige exactement les
 six composants et refuse `latest`. Les vraies valeurs devront utiliser
@@ -156,9 +155,10 @@ services Fargate. Chaque environnement possède un namespace privé
 `<environment>.<project_name>.local`. Seuls `auth`, `paie`, `conges` et
 `recrutement` y sont enregistrés. L'API Gateway reçoit `AUTH_SERVICE_URL`,
 `PAIE_SERVICE_URL`, `CONGES_SERVICE_URL` et `RECRUTEMENT_SERVICE_URL`, en plus de
-`NODE_ENV` et `PORT`. Les autres composants reçoivent uniquement `NODE_ENV` et
-`PORT`. Le code applicatif doit encore être adapté pour lire ces variables au
-lieu des valeurs actuellement codées en dur.
+`NODE_ENV` et `PORT`. Les variables de connexion à PostgreSQL et les références
+Secrets Manager sont décrites dans la section suivante. Le code applicatif doit
+encore être adapté pour lire les URL de services au lieu des valeurs actuellement
+codées en dur.
 
 Le frontend est rattaché uniquement au target group frontend blue et l'API
 Gateway uniquement au target group API Gateway blue. Les quatre services métier
@@ -179,12 +179,52 @@ avec des VPC endpoints ou une sortie NAT contrôlée. Les six tâches Fargate, l
 IPv4 publiques et les logs sont susceptibles d'être facturés et doivent rester
 actifs le moins longtemps possible dans la limite de 50 euros.
 
-RDS et Secrets Manager ne sont pas intégrés à cette étape. Les services qui en
-dépendent ne sont donc pas prêts à fonctionner réellement. De plus, `/health`
+RDS et Secrets Manager sont désormais référencés par les task definitions. Les
+adaptations applicatives encore requises sont détaillées ci-dessous. `/health`
 n'est toujours pas confirmé pour `auth`, `paie`, `conges` et `recrutement`, et
 aucune route n'est inventée par Terraform. Toutes les ressources ECS décrites
 restent potentielles : aucun cluster, service, rôle, namespace, log group ou
 task definition n'a été créé sur AWS.
+
+### Secrets Manager et injection ECS
+
+Chaque environnement décrit deux conteneurs Secrets Manager applicatifs séparés,
+nommés `<project_name>/<environment>/jwt-secret` et
+`<project_name>/<environment>/stripe-secret-key`. Terraform ne crée aucune
+version et ne reçoit aucune valeur : un opérateur devra renseigner ces deux
+conteneurs hors Terraform avant tout démarrage des tâches. Staging et production
+ont des conteneurs et des valeurs indépendants.
+
+Le mot de passe PostgreSQL n'est pas dupliqué. Le module ECS réutilise le secret
+maître que RDS crée grâce à `manage_master_user_password = true`. Les services
+concernés reçoivent `DB_USER` et `DB_PASSWORD` via les clés JSON `username` et
+`password` de ce secret ; `DB_HOST`, `DB_PORT` et `DB_NAME`, qui ne sont pas
+sensibles, restent des variables d'environnement ordinaires. `auth` et l'API
+Gateway reçoivent `JWT_SECRET`, tandis que `paie` reçoit `STRIPE_SECRET_KEY`
+depuis les conteneurs applicatifs.
+
+Le code `auth` consomme déjà les cinq variables `DB_*`. En revanche, `paie`,
+`conges` et `recrutement` consomment actuellement une variable unique
+`DATABASE_URL`. Avant un déploiement fonctionnel, ces trois services devront être
+adaptés pour construire leur connexion à partir de `DB_HOST`, `DB_PORT`,
+`DB_NAME`, `DB_USER` et `DB_PASSWORD`. Cette adaptation évite de stocker une
+seconde copie du mot de passe RDS dans un secret `DATABASE_URL`. Le code contient
+également des valeurs sensibles de repli et journalise actuellement
+`JWT_SECRET` ; ces comportements devront être supprimés avant tout déploiement,
+mais aucune modification JavaScript n'est incluse dans cette étape Terraform.
+
+Le rôle d'exécution ECS conserve la politique AWS standard pour ECR et les logs,
+et reçoit uniquement `secretsmanager:GetSecretValue` sur les ARN exacts des deux
+conteneurs applicatifs et du secret maître RDS de son environnement. Aucun joker
+n'est utilisé. Aucun droit `kms:Decrypt` supplémentaire n'est nécessaire tant
+que ces secrets utilisent les clés gérées par AWS ; l'adoption future d'une clé
+KMS gérée par le projet imposerait une autorisation ciblée sur son ARN.
+
+Cette évolution décrit potentiellement deux conteneurs Secrets Manager et une
+politique IAM inline supplémentaires par environnement, soit six ressources
+Terraform gérées au total. Les conteneurs Secrets Manager peuvent être facturés
+une fois créés. Aucune ressource ni valeur de secret n'a été créée sur AWS par
+les validations locales décrites ici.
 
 ### Base PostgreSQL RDS
 

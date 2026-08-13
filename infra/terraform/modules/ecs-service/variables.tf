@@ -99,6 +99,12 @@ variable "environment_variables" {
   default     = {}
 }
 
+variable "secret_variables" {
+  description = "Variables sensibles injectees depuis Secrets Manager dans le conteneur."
+  type        = map(string)
+  default     = {}
+}
+
 variable "target_group_arn" {
   description = "ARN facultatif du target group ALB blue."
   type        = string

@@ -60,6 +60,10 @@ locals {
     if !contains(["frontend", "api-gateway"], name)
   }
 
+  database_components = toset(["auth", "paie", "conges", "recrutement"])
+
+  app_secret_names = ["jwt-secret", "stripe-secret-key"]
+
   service_discovery_namespace = "${var.environment}.${var.project_name}.local"
 
   base_environment_variables = {
@@ -69,14 +73,45 @@ locals {
     }
   }
 
-  environment_variables = merge(local.base_environment_variables, {
-    api-gateway = merge(local.base_environment_variables["api-gateway"], {
-      AUTH_SERVICE_URL        = "http://auth.${local.service_discovery_namespace}:3001"
-      PAIE_SERVICE_URL        = "http://paie.${local.service_discovery_namespace}:3002"
-      CONGES_SERVICE_URL      = "http://conges.${local.service_discovery_namespace}:3003"
-      RECRUTEMENT_SERVICE_URL = "http://recrutement.${local.service_discovery_namespace}:3004"
-    })
-  })
+  environment_variables = merge(
+    local.base_environment_variables,
+    {
+      for name in local.database_components : name => merge(local.base_environment_variables[name], {
+        DB_HOST = module.database.db_address
+        DB_PORT = tostring(module.database.db_port)
+        DB_NAME = var.db_name
+      })
+    },
+    {
+      api-gateway = merge(local.base_environment_variables["api-gateway"], {
+        AUTH_SERVICE_URL        = "http://auth.${local.service_discovery_namespace}:3001"
+        PAIE_SERVICE_URL        = "http://paie.${local.service_discovery_namespace}:3002"
+        CONGES_SERVICE_URL      = "http://conges.${local.service_discovery_namespace}:3003"
+        RECRUTEMENT_SERVICE_URL = "http://recrutement.${local.service_discovery_namespace}:3004"
+      })
+    }
+  )
+
+  secret_variables = merge(
+    { for name in keys(local.components) : name => {} },
+    {
+      for name in local.database_components : name => {
+        DB_USER     = "${module.database.master_user_secret_arn}:username::"
+        DB_PASSWORD = "${module.database.master_user_secret_arn}:password::"
+      }
+    },
+    {
+      api-gateway = { JWT_SECRET = module.secrets.secret_arns["jwt-secret"] }
+      auth = merge({
+        DB_USER     = "${module.database.master_user_secret_arn}:username::"
+        DB_PASSWORD = "${module.database.master_user_secret_arn}:password::"
+      }, { JWT_SECRET = module.secrets.secret_arns["jwt-secret"] })
+      paie = merge({
+        DB_USER     = "${module.database.master_user_secret_arn}:username::"
+        DB_PASSWORD = "${module.database.master_user_secret_arn}:password::"
+      }, { STRIPE_SECRET_KEY = module.secrets.secret_arns["stripe-secret-key"] })
+    }
+  )
 
   common_tags = {
     Project     = var.project_name
@@ -111,6 +146,28 @@ resource "aws_iam_role" "ecs_task_execution" {
 resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   role       = aws_iam_role.ecs_task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+module "secrets" {
+  source = "../../modules/secrets"
+
+  project_name = var.project_name
+  environment  = var.environment
+  secret_names = local.app_secret_names
+}
+
+resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
+  name = "${var.project_name}-${var.environment}-ecs-secrets"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = concat(values(module.secrets.secret_arns), [module.database.master_user_secret_arn])
+    }]
+  })
 }
 
 resource "aws_service_discovery_private_dns_namespace" "this" {
@@ -160,11 +217,13 @@ module "ecs_services" {
   subnet_ids                     = module.network.public_subnet_ids
   security_group_ids             = [module.security_groups.ecs_security_group_id]
   environment_variables          = local.environment_variables[each.key]
+  secret_variables               = local.secret_variables[each.key]
   target_group_arn               = each.value.target_group_arn
   service_discovery_registry_arn = contains(keys(local.internal_components), each.key) ? aws_service_discovery_service.internal[each.key].arn : null
 
   depends_on = [
     aws_iam_role_policy_attachment.ecs_task_execution,
+    aws_iam_role_policy.ecs_task_execution_secrets,
     module.alb
   ]
 }
