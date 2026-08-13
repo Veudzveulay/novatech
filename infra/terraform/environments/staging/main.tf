@@ -16,3 +16,13 @@ module "security_groups" {
   environment  = var.environment
   vpc_id       = module.network.vpc_id
 }
+
+module "alb" {
+  source = "../../modules/alb"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_id                = module.network.vpc_id
+  public_subnet_ids     = module.network.public_subnet_ids
+  alb_security_group_id = module.security_groups.alb_security_group_id
+}

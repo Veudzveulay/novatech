@@ -15,9 +15,9 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `codedeploy` : déploiements Blue/Green et rollback applicatif.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
-À l'exception du module `ecr`, les modules non encore implémentés restent des
-squelettes documentés. Leurs interfaces ne seront complétées qu'avec des besoins
-confirmés afin de ne pas inventer de paramètres.
+À l'exception des modules `ecr` et `alb`, les modules non encore implémentés
+restent des squelettes documentés. Leurs interfaces ne seront complétées qu'avec
+des besoins confirmés afin de ne pas inventer de paramètres.
 
 ### Repositories ECR partagés
 
@@ -94,6 +94,38 @@ réelle devrait le resserrer avec des règles ciblées, des tâches en subnets
 privés et des VPC endpoints ou une sortie NAT contrôlée. Ces groupes sont
 uniquement décrits par Terraform et ne sont pas déclarés comme existants sur
 AWS.
+
+### Application Load Balancer
+
+Le module `alb` décrit un Application Load Balancer public distinct dans chaque
+environnement, réparti sur les deux subnets publics et associé au Security Group
+ALB existant. Seuls le frontend et l'API Gateway possèdent des target groups
+publics ; `auth`, `paie`, `conges` et `recrutement` restent internes.
+
+Le listener HTTP 80 envoie par défaut le trafic vers le frontend. Une règle de
+priorité 100 route `/api/*` vers l'API Gateway, conformément aux routes
+réellement déclarées par l'application. HTTPS n'est pas configuré tant qu'aucun
+domaine ni certificat ACM n'est confirmé.
+
+Les target groups utilisent `target_type = "ip"`, requis pour les futures tâches
+ECS Fargate en mode réseau `awsvpc`. L'API Gateway est contrôlée sur `/health`
+avec un matcher HTTP 200. Le frontend ne possède encore ni image Nginx ni route
+`/health` confirmée : son contrôle utilise provisoirement `/`, chemin réel de la
+SPA et variable du module. Il devra être remplacé par `/health` dès que la
+configuration Nginx correspondante sera implémentée et testée.
+
+Deux target groups, blue et green, sont décrits pour chacun des deux composants
+publics. Le listener cible initialement les groupes blue ; les groupes green
+restent disponibles pour une future orchestration CodeDeploy sans imposer une
+refonte du module ALB. Aucun CodeDeploy ni basculement Blue/Green n'est configuré
+à cette étape.
+
+Cette séparation prévoit potentiellement deux ALB facturés en continu, un pour
+staging et un pour production, en plus des unités de capacité consommées. Elle
+coûte davantage qu'un ALB partagé mais préserve l'isolation exigée entre les
+environnements. Le coût devra être estimé dans la région choisie avant toute
+création, et staging devra être conservé le moins longtemps possible pour rester
+dans le budget total de 50 euros. Aucun ALB ni target group n'a été créé sur AWS.
 
 ## Environnements
 
