@@ -1,14 +1,15 @@
 # Pipeline HRFlow — Théo Marchand oct 2021
 # TODO: ajouter tests quand on en aura
 
-name: Deploy to Production
+name: Legacy SSH Deploy (disabled)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
+    # Désactivé explicitement : remplacé par le CD ECS J3 réutilisable.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

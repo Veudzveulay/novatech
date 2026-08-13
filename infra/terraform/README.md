@@ -12,6 +12,7 @@ sur AWS et ce code ne constitue pas une preuve de déploiement.
 - `ecs-service` : cluster, task definitions, services Fargate et journaux.
 - `database` : base PostgreSQL RDS, subnet group et protections associées.
 - `secrets` : conteneurs Secrets Manager et droits d'accès minimaux.
+- `github-oidc` : fournisseur OIDC et rôle de déploiement GitHub Actions ciblé.
 - `codedeploy` : squelette conservé mais non utilisé ; le Blue/Green est géré nativement par ECS.
 - `budget` : budget AWS et seuils d'alerte adaptés à la limite du workshop.
 
@@ -312,9 +313,19 @@ promouvoir les mêmes images et digests ECR tagués avec le SHA Git qui ont ét�
 validés en staging, sans reconstruction et sans utiliser `latest`.
 
 `shared` est une troisième racine Terraform, indépendante des environnements,
-réservée aux ressources communes. Elle gère uniquement ECR à cette étape et
+réservée aux ressources communes. Elle gère ECR ainsi que l'identité OIDC du
+pipeline GitHub Actions et
 expose les URLs, ARN et noms complets des repositories sous forme de maps
 indexées par composant pour les futurs workflows et task definitions ECS.
+
+La variable `github_repository` limite la confiance OIDC à une identité au
+format `owner/repository` et à la branche `main`. L'exemple utilise uniquement
+`example-owner/example-repository`. Le rôle de déploiement peut pousser vers les
+six repositories, enregistrer des task definitions, mettre à jour les douze
+services et passer uniquement les rôles ECS nécessaires. Les seules permissions
+sur `*` sont `ecr:GetAuthorizationToken`, ainsi que la lecture et
+l'enregistrement des task definitions dont les API ne permettent pas un ciblage
+utile sur des ARN futurs. Aucun credential AWS statique n'est créé.
 
 La région, les zones de disponibilité, les CIDR et le backend d'état définitifs
 restent à confirmer. Aucun credential AWS n'est configuré dans ce dépôt.

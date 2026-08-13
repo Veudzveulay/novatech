@@ -24,3 +24,13 @@ variable "repository_names" {
     error_message = "repository_names doit contenir exactement les six composants NovaTech attendus."
   }
 }
+
+variable "github_repository" {
+  description = "Repository GitHub autorise pour le CD, au format owner/repository."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository doit respecter le format owner/repository."
+  }
+}
