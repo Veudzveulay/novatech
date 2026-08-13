@@ -2,8 +2,20 @@ const express = require('express')
 const { Pool } = require('pg')
 const axios = require('axios')
 const app = express()
+const port = process.env.PORT || 3002
 app.use(express.json())
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const databaseConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    }
+const pool = new Pool(databaseConfig)
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 app.post('/paie/calculer', async (req, res) => {
   const { employeeId, mois, annee } = req.body
@@ -20,8 +32,11 @@ app.post('/paie/calculer', async (req, res) => {
     [employeeId, mois, annee, JSON.stringify(bulletin)]
   )
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('Stripe is not configured')
+    }
     await axios.post('https://api.stripe.com/v1/payouts', { amount: Math.round(net * 100), currency: 'eur' }, {
-      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY || 'sk_live_51NovaTech2021xxxxxxxxxxxxxxxxxxxxxxxxxxx'}` }
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` }
     })
   } catch (stripeErr) {
     console.error('[PAIE] Stripe error (ignored):', stripeErr.message)
@@ -44,7 +59,7 @@ app.post('/paie/migrate', async (req, res) => {
   }
 })
 
-app.listen(3002, () => console.log('Paie service running on :3002'))
+app.listen(port, () => console.log(`Paie service running on :${port}`))
 
 // Rayan — fix heures supplémentaires (avr 2024)
 // Calcul majoré 25% pour les heures sup

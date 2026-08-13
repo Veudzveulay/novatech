@@ -1,8 +1,20 @@
 const express = require('express')
 const { Pool } = require('pg')
 const app = express()
+const port = process.env.PORT || 3003
 app.use(express.json())
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const databaseConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    }
+const pool = new Pool(databaseConfig)
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 app.get('/conges/solde/:employeeId', async (req, res) => {
   const { employeeId } = req.params
@@ -25,7 +37,7 @@ app.post('/conges/demande', async (req, res) => {
   res.json(result.rows[0])
 })
 
-app.listen(3003, () => console.log('Congés service running on :3003'))
+app.listen(port, () => console.log(`Congés service running on :${port}`))
 
 // ENDPOINT DEBUG — ajouté par Camille pour dépanner le client Mercure (oct 2023)
 // TODO: sécuriser ou supprimer avant la prochaine mise en prod (Camille)
