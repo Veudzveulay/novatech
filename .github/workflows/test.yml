@@ -1,0 +1,193 @@
+# Stage TEST du pipeline HRFlow
+
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write 
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ── Filet rapide : aucun service externe, doit rester sous la minute ───────
+  tests-unitaires:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Tests unitaires
+        run: npm run test:unit -- --ci --reporters=default
+
+  # ── Tests d'intégration + couverture agrégée ──────────────────────────────
+  tests-integration:
+    name: Tests d'intégration et couverture
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: hrflow_test
+          POSTGRES_PASSWORD: hrflow_test
+          POSTGRES_DB: hrflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hrflow_test -d hrflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://hrflow_test:hrflow_test@localhost:5432/hrflow_test
+      TEST_DB_HOST: localhost
+      TEST_DB_PORT: '5432'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      # Le seuil de 80 % est appliqué par jest.config.js (coverageThreshold) :
+      # sous le seuil, cette étape échoue et la PR est bloquée.
+      - name: Tests unitaires + intégration avec couverture
+        run: npm run test:coverage -- --ci --reporters=default
+
+      - name: Publication du rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-couverture
+          path: coverage/
+          retention-days: 14
+
+      - name: Résumé de couverture dans le récapitulatif du job
+        if: always()
+        run: |
+          echo "## Couverture de tests" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx jest --coverage --coverageReporters=text-summary --silent 2>/dev/null | tail -8 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Commentaire de couverture sur la Pull Request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            const chemin = 'coverage/coverage-summary.json'
+            if (!fs.existsSync(chemin)) return
+
+            const total = JSON.parse(fs.readFileSync(chemin, 'utf8')).total
+            const seuils = { statements: 80, branches: 75, functions: 80, lines: 80 }
+            const icone = (v, s) => (v >= s ? '✅' : '❌')
+
+            const lignes = [
+              '<!-- couverture-hrflow -->',
+              '## 📊 Couverture de tests',
+              '',
+              '| Métrique | Couvert | Seuil | Statut |',
+              '|---|---|---|---|',
+              ...Object.entries(seuils).map(([cle, seuil]) => {
+                const v = total[cle].pct
+                return `| ${cle} | ${v} % (${total[cle].covered}/${total[cle].total}) | ${seuil} % | ${icone(v, seuil)} |`
+              }),
+              '',
+              `_Commit ${context.sha.substring(0, 7)} — rapport HTML complet dans les artefacts du job._`,
+            ].join('\n')
+
+            const { data: commentaires } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+            const existant = commentaires.find((c) => c.body.includes('<!-- couverture-hrflow -->'))
+
+            if (existant) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existant.id,
+                body: lignes,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: lignes,
+              })
+            }
+
+  # ── Parcours de bout en bout ──────────────────────────────────────────────
+  tests-e2e:
+    name: Tests E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: tests-unitaires
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: hrflow_test
+          POSTGRES_PASSWORD: hrflow_test
+          POSTGRES_DB: hrflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hrflow_test -d hrflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://hrflow_test:hrflow_test@localhost:5432/hrflow_test
+      TEST_DB_HOST: localhost
+      TEST_DB_PORT: '5432'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      # Les parcours passent par l'API HTTP, pas par un navigateur : aucun
+      # téléchargement de Chromium n'est nécessaire.
+      - name: Parcours E2E
+        run: npm run test:e2e
+
+      - name: Publication du rapport Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: playwright-report/
+          retention-days: 14

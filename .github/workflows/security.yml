@@ -1,0 +1,254 @@
+# Stage SECURITY du pipeline HRFlow
+
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_call:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ── 1. Secrets ────────────────────────────────────────────────────────────
+  secrets:
+    name: Détection de secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyse gitleaks du code et de l'historique
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            zricethezav/gitleaks:latest detect \
+            --source /repo \
+            --config /repo/.gitleaks.toml \
+            --redact \
+            --report-format sarif \
+            --report-path /repo/gitleaks-report.sarif \
+            --exit-code 1
+
+      - name: Publication du rapport gitleaks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-gitleaks
+          path: gitleaks-report.sarif
+          retention-days: 30
+
+  # ── 2. Dépendances ────────────────────────────────────────────────────────
+  dependances:
+    name: Vulnérabilités des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+        
+      - name: npm audit (dépendances de production)
+        run: |
+          npm audit --omit=dev --audit-level=high --json > npm-audit.json || AUDIT_ECHEC=1
+          npx --yes npm-audit-html --input npm-audit.json --output npm-audit.html 2>/dev/null || true
+          echo "## npm audit" >> $GITHUB_STEP_SUMMARY
+          node -e "
+            const r = require('./npm-audit.json');
+            const v = r.metadata && r.metadata.vulnerabilities || {};
+            console.log('| Sévérité | Nombre |'); console.log('|---|---|');
+            for (const [k, n] of Object.entries(v)) console.log('| ' + k + ' | ' + n + ' |');
+          " >> $GITHUB_STEP_SUMMARY
+          exit ${AUDIT_ECHEC:-0}
+
+      - name: Publication du rapport npm audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-npm-audit
+          path: |
+            npm-audit.json
+            npm-audit.html
+          retention-days: 30
+
+  # ── 3. Trivy sur les sources ──────────────────────────────────────────────
+  trivy-sources:
+    name: Trivy (système de fichiers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Analyse des dépendances et des fichiers de configuration
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          format: table
+
+      - name: Rapport SARIF (toujours produit, même si l'étape précédente échoue)
+        if: always()
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy-fs.sarif
+
+      - name: Publication du rapport Trivy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-trivy-fs
+          path: trivy-fs.sarif
+          retention-days: 30
+
+  # ── 4. Trivy sur les images ─────────────────────────────
+  trivy-images:
+    name: Trivy (images Docker)
+    runs-on: ubuntu-latest
+    if: false # ← à retirer quand `docker build --target prod` fonctionne
+    strategy:
+      fail-fast: false
+      matrix:
+        unite: [front, api-gateway, auth, paie, conges, recrutement]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construction de l'image ${{ matrix.unite }} (cible prod)
+        run: |
+          docker build \
+            --target prod \
+            -t hrflow-${{ matrix.unite }}:ci \
+            -f docker/${{ matrix.unite }}/Dockerfile \
+            ./docker/${{ matrix.unite }}
+
+      - name: Analyse de l'image
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          image-ref: hrflow-${{ matrix.unite }}:ci
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+
+  # ── 5. Scan dynamique de l'API (ZAP baseline) ─────────────────────────────
+  # Ne dépend PAS des Dockerfiles : les services sont démarrés avec Node.
+  zap-baseline:
+    name: ZAP baseline (API)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: hrflow_test
+          POSTGRES_PASSWORD: hrflow_test
+          POSTGRES_DB: hrflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hrflow_test -d hrflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://hrflow_test:hrflow_test@localhost:5432/hrflow_test
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: hrflow_test
+      DB_USER: hrflow_test
+      DB_PASSWORD: hrflow_test
+      JWT_SECRET: secret_de_scan_ci
+      # Garde-fou : aucun appel sortant vers Stripe pendant le scan.
+      STRIPE_SECRET_KEY: sk_test_scan_ci
+      HTTP_PROXY: http://127.0.0.1:9
+      HTTPS_PROXY: http://127.0.0.1:9
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Préparation de la base
+        run: |
+          npx --yes wait-port localhost:5432 -t 30000
+          PGPASSWORD=hrflow_test psql -h localhost -U hrflow_test -d hrflow_test -f db/schema.sql
+          PGPASSWORD=hrflow_test psql -h localhost -U hrflow_test -d hrflow_test -f db/seed-test.sql
+
+      - name: Démarrage des 4 services et de la passerelle
+        run: |
+          node services/auth/src/server.js &
+          node services/paie/src/server.js &
+          node services/conges/src/server.js &
+          node services/recrutement/src/server.js &
+          node services/api-gateway/src/server.js &
+          npx --yes wait-port localhost:3000 -t 30000
+
+      # `--network host` : sans cela le conteneur ZAP ne peut pas joindre les
+      # services démarrés sur le runner.
+      - name: Scan ZAP baseline
+        run: |
+          mkdir -p zap-report && chmod 777 zap-report
+          docker run --rm --network host \
+            -v "$PWD/zap-report:/zap/wrk:rw" \
+            -v "$PWD/.zap-rules.tsv:/zap/rules.tsv:ro" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t http://127.0.0.1:3000 \
+              -c rules.tsv \
+              -r rapport-zap.html \
+              -w rapport-zap.md \
+              -J rapport-zap.json
+
+      - name: Publication du rapport ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-zap
+          path: zap-report/
+          retention-days: 30
+
+      - name: Résumé ZAP dans le récapitulatif du job
+        if: always()
+        run: |
+          echo "## ZAP baseline" >> $GITHUB_STEP_SUMMARY
+          cat zap-report/rapport-zap.md >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "_rapport indisponible_" >> $GITHUB_STEP_SUMMARY
+
+  # ── Verdict global du stage ───────────────────────────────────────────────
+  verdict:
+    name: Verdict sécurité
+    runs-on: ubuntu-latest
+    needs: [secrets, dependances, trivy-sources, zap-baseline]
+    if: always()
+    steps:
+      - name: Échec si l'un des contrôles a échoué
+        run: |
+          echo "secrets      : ${{ needs.secrets.result }}"
+          echo "dependances  : ${{ needs.dependances.result }}"
+          echo "trivy-sources: ${{ needs.trivy-sources.result }}"
+          echo "zap-baseline : ${{ needs.zap-baseline.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            echo "::error::Le stage Security a détecté au moins un problème bloquant."
+            exit 1
+          fi

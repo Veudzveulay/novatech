@@ -1,0 +1,28 @@
+# Règles ZAP baseline — HRFlow (L2)
+#
+# Format : <id de règle>	<WARN|IGNORE|FAIL>	<commentaire>
+# Le job CI est lancé SANS l'option -I : toute alerte non listée ici en IGNORE
+# fait échouer le stage Security. Autrement dit, ce fichier est la référence
+# des constats déjà connus ; tout NOUVEAU problème bloque la Pull Request.
+#
+# Règle d'usage : on n'ajoute pas une ligne IGNORE pour faire passer la CI.
+# Chaque exception porte une justification, un responsable et une échéance.
+# Revue obligatoire au J4 (livrable Monitoring) et avant la soutenance.
+
+# ── Constats connus, tracés, non bloquants pour l'instant ────────────────────
+# En-têtes de sécurité absents : ils seront posés au niveau de nginx et de la
+# passerelle. Relève de la remédiation du L1 / de la config nginx du L3.
+10015	IGNORE	Cache-Control absent — à traiter avec la configuration nginx (L3)
+10020	IGNORE	X-Frame-Options absent — API JSON sans rendu HTML, risque faible ; à poser au niveau nginx (L3)
+10021	IGNORE	X-Content-Type-Options absent — à poser au niveau nginx (L3)
+10035	IGNORE	HSTS absent — dépend de la terminaison TLS de l'ALB, livrable L3
+10038	IGNORE	CSP absente — API JSON, sans effet ; à poser côté frontend quand il sera démarrable
+10037	IGNORE	En-tête X-Powered-By d'Express — à désactiver dans la remédiation (app.disable('x-powered-by'))
+10036	IGNORE	Bannière de version du serveur — même remédiation que 10037
+
+# ── Constats connus GRAVES : volontairement laissés bloquants ────────────────
+# Ces deux règles correspondent à des vulnérabilités confirmées par les tests
+# unitaires et E2E (VULN-09 et VULN-10). Elles DOIVENT faire échouer le stage :
+# c'est ce qui force leur traitement avant la mise en production.
+10098	FAIL	CORS totalement ouvert (VULN-09) — confirmé par tests/unit/api-gateway.test.js
+90022	FAIL	Divulgation de trace d'exécution applicative (VULN-10) — confirmé par tests/unit/api-gateway.test.js
