@@ -11,7 +11,7 @@ COPY public ./public
 COPY src ./src
 RUN npm run build
 
-FROM nginx:1.28-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 
 RUN apk upgrade --no-cache
 
