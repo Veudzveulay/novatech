@@ -10,7 +10,12 @@ COPY package.json package-lock.json ./
 
 RUN npm ci --omit=dev
 
+RUN addgroup -S app && adduser -S app -G app
+
 COPY services/conges ./services/conges
+
+RUN chown -R app:app /app
+USER app
 
 ENV NODE_ENV=production
 ENV CONGES_PORT=3003

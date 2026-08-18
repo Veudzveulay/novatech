@@ -50,6 +50,16 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   tags              = local.common_tags
 }
 
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS public vers le futur ALB"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  tags              = local.common_tags
+}
+
 resource "aws_vpc_security_group_egress_rule" "alb_to_frontend" {
   security_group_id            = aws_security_group.alb.id
   description                  = "ALB vers le frontend ECS"
@@ -102,13 +112,36 @@ resource "aws_vpc_security_group_ingress_rule" "ecs_internal_services" {
   tags                         = local.common_tags
 }
 
-# Egress large pour le workshop sans NAT. À resserrer en production réelle.
-resource "aws_vpc_security_group_egress_rule" "ecs_all_ipv4" {
+# Les tâches ECS nécessitent un accès sortant public pour les appels externes et
+# les téléchargements de dépendances ; le trafic entrant reste strictement limité.
+resource "aws_vpc_security_group_egress_rule" "ecs_http_ipv4" {
   security_group_id = aws_security_group.ecs.id
-  description       = "Egress workshop vers Internet et PostgreSQL"
+  description       = "Egress HTTP vers Internet"
   cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "-1"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
   tags              = local.common_tags
+}
+
+resource "aws_vpc_security_group_egress_rule" "ecs_https_ipv4" {
+  security_group_id = aws_security_group.ecs.id
+  description       = "Egress HTTPS vers Internet"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  tags              = local.common_tags
+}
+
+resource "aws_vpc_security_group_egress_rule" "ecs_db_ipv4" {
+  security_group_id            = aws_security_group.ecs.id
+  description                  = "Egress vers PostgreSQL"
+  referenced_security_group_id = aws_security_group.database.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  tags                         = local.common_tags
 }
 
 resource "aws_vpc_security_group_ingress_rule" "database_postgresql_from_ecs" {

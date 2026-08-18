@@ -23,6 +23,8 @@ COPY --from=build /app/frontend/build /usr/share/nginx/html
 
 COPY docker/front/nginx/prod.conf /etc/nginx/conf.d/default.conf
 
+USER nginx
+
 EXPOSE 80
 
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 \

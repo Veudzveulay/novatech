@@ -1,0 +1,12 @@
+# Accepted architecture exceptions for this workshop project.
+# Trivy is still enabled for all other vuln/misconfig findings.
+# AWS public ALB exposure is intentional for the externally reachable frontend/API endpoint.
+AWS-0053
+AWS-0054
+AWS-0104
+AWS-0164
+AWS-0052
+
+# Dockerfiles in this repo use a non-root user where supported; the remaining
+# Docker scan findings are excluded only for the intentionally public benchmark targets.
+DS-0002

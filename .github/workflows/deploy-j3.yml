@@ -61,6 +61,7 @@ jobs:
     name: Deploy staging
     needs: build-push
     runs-on: ubuntu-latest
+    environment: staging
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         with:
@@ -124,6 +125,7 @@ jobs:
     name: Smoke tests staging
     needs: deploy-staging
     runs-on: ubuntu-latest
+    environment: staging
     steps:
       - name: Test safe staging endpoints
         shell: bash
@@ -140,6 +142,7 @@ jobs:
     name: Deploy production
     needs: [build-push, smoke-staging]
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: aws-actions/configure-aws-credentials@v5
         with:
@@ -203,6 +206,7 @@ jobs:
     name: Smoke tests production
     needs: deploy-production
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Test safe production endpoints
         shell: bash

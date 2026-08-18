@@ -1,10 +1,7 @@
 name: ShipIt CI — Stage 1 (Build & Lint & Type-check)
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -25,18 +22,27 @@ jobs:
         include:
           - service: front
             workspace: frontend
+            lockfile: frontend/package-lock.json
 
           - service: api-gateway
             workspace: services/api-gateway
+            lockfile: services/api-gateway/package-lock.json
+
+          - service: auth
+            workspace: services/auth
+            lockfile: services/auth/package-lock.json
 
           - service: service-paie
             workspace: services/paie
+            lockfile: services/paie/package-lock.json
 
           - service: service-conges
             workspace: services/conges
+            lockfile: services/conges/package-lock.json
 
           - service: service-recrutement
             workspace: services/recrutement
+            lockfile: services/recrutement/package-lock.json
 
     steps:
       - name: Checkout du code
@@ -47,9 +53,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: ${{ matrix.lockfile }}
 
       - name: Installation des dépendances
+        working-directory: ${{ matrix.workspace }}
         run: npm ci
 
       - name: Lint
@@ -80,19 +87,28 @@ jobs:
       matrix:
         include:
           - service: front
-            docker_dir: front
+            dockerfile: frontend/Dockerfile
+            context: frontend
 
           - service: api-gateway
-            docker_dir: api-gateway
+            dockerfile: services/api-gateway/Dockerfile
+            context: services/api-gateway
+
+          - service: auth
+            dockerfile: services/auth/Dockerfile
+            context: services/auth
 
           - service: service-paie
-            docker_dir: service-paie
+            dockerfile: services/paie/Dockerfile
+            context: services/paie
 
           - service: service-conges
-            docker_dir: service-conges
+            dockerfile: services/conges/Dockerfile
+            context: services/conges
 
           - service: service-recrutement
-            docker_dir: service-recrutement
+            dockerfile: services/recrutement/Dockerfile
+            context: services/recrutement
 
     permissions:
       contents: read
@@ -116,8 +132,8 @@ jobs:
       - name: Build image Docker
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./docker/${{ matrix.docker_dir }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ./${{ matrix.dockerfile }}
           push: false
           load: true
           tags: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.service }}:${{ github.sha }}
@@ -128,8 +144,8 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./docker/${{ matrix.docker_dir }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ./${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service }}:${{ github.sha }}

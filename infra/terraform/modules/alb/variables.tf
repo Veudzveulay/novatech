@@ -52,6 +52,17 @@ variable "alb_security_group_id" {
   }
 }
 
+variable "certificate_arn" {
+  description = "ARN du certificat ACM pour le listener HTTPS de l'ALB."
+  type        = string
+  default     = "arn:aws:acm:eu-west-3:000000000000:certificate/example"
+
+  validation {
+    condition     = length(trimspace(var.certificate_arn)) > 0
+    error_message = "certificate_arn ne doit pas etre vide."
+  }
+}
+
 variable "frontend_health_check_path" {
   description = "Chemin de sante Nginx du frontend."
   type        = string

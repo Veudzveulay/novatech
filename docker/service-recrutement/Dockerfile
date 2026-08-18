@@ -10,13 +10,16 @@ COPY package.json package-lock.json ./
 
 RUN npm ci --omit=dev
 
+RUN addgroup -S app && adduser -S app -G app
+
 COPY services/recrutement ./services/recrutement
+
+RUN chown -R app:app /app && mkdir -p /tmp/uploads && chown -R app:app /tmp/uploads
+USER app
 
 ENV NODE_ENV=production
 ENV RECRUTEMENT_PORT=3004
 ENV UPLOAD_DIR=/tmp/uploads
-
-RUN mkdir -p /tmp/uploads
 
 EXPOSE 3004
 

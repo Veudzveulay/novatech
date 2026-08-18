@@ -82,6 +82,18 @@ describe('Routage vers les services', () => {
       delete process.env.AUTH_URL
     })
   })
+
+  test('le feature flag désactive la route recrutement', async () => {
+    process.env.FEATURE_RECRUITMENT_ENABLED = 'false'
+    let appIsole
+    jest.isolateModules(() => {
+      appIsole = require('../../services/api-gateway/src/app')
+    })
+    const res = await request(appIsole).get('/api/recrutement/candidats')
+    delete process.env.FEATURE_RECRUITMENT_ENABLED
+
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('Sécurité de la passerelle — défauts connus', () => {
