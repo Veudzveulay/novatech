@@ -7,6 +7,8 @@ FROM node:${NODE_VERSION} AS build
 
 WORKDIR /app/frontend
 
+RUN npm install -g npm@11.6.2
+
 COPY frontend/package.json frontend/package-lock.json ./
 
 RUN npm ci
