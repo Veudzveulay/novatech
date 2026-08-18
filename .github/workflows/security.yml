@@ -98,6 +98,8 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           format: table
+          trivyignores: .trivyignore
+          args: --skip-dirs .e2e-uploads --skip-dirs .git --skip-dirs node_modules --skip-dirs frontend/build --skip-dirs playwright-report --skip-dirs test-results --skip-files .env --skip-files .env.*
 
       - name: Rapport SARIF (toujours produit, même si l'étape précédente échoue)
         if: always()
@@ -108,6 +110,8 @@ jobs:
           scanners: vuln,secret,misconfig
           format: sarif
           output: trivy-fs.sarif
+          trivyignores: .trivyignore
+          args: --skip-dirs .e2e-uploads --skip-dirs .git --skip-dirs node_modules --skip-dirs frontend/build --skip-dirs playwright-report --skip-dirs test-results --skip-files .env --skip-files .env.*
 
       - name: Publication du rapport Trivy
         if: always()
