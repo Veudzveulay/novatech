@@ -24,7 +24,7 @@ jobs:
       matrix:
         include:
           - service: front
-            workspace: services/front
+            workspace: frontend
 
           - service: api-gateway
             workspace: services/api-gateway
