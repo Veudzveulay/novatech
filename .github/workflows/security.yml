@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Analyse des dépendances et des fichiers de configuration
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -101,7 +101,7 @@ jobs:
 
       - name: Rapport SARIF (toujours produit, même si l'étape précédente échoue)
         if: always()
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -138,7 +138,7 @@ jobs:
             ./docker/${{ matrix.unite }}
 
       - name: Analyse de l'image
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: hrflow-${{ matrix.unite }}:ci
