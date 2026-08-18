@@ -1,0 +1,220 @@
+name: J3 ECS CD
+
+on:
+  workflow_call:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: j3-cd-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+  IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  build-push:
+    name: Build and push six images
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable images
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          set -euo pipefail
+
+          components=(frontend api-gateway auth paie conges recrutement)
+          declare -A contexts=(
+            [frontend]="frontend"
+            [api-gateway]="services/api-gateway"
+            [auth]="services/auth"
+            [paie]="services/paie"
+            [conges]="services/conges"
+            [recrutement]="services/recrutement"
+          )
+
+          for component in "${components[@]}"; do
+            image="${ECR_REGISTRY}/${PROJECT_NAME}/${component}:${IMAGE_TAG}"
+            docker build --tag "${image}" "${contexts[$component]}"
+            docker push "${image}"
+          done
+
+  deploy-staging:
+    name: Deploy staging
+    needs: build-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Register task definitions and update staging services
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ needs.build-push.outputs.registry }}
+        run: |
+          set -euo pipefail
+          environment=staging
+          cluster="${PROJECT_NAME}-${environment}-cluster"
+          components=(frontend api-gateway auth paie conges recrutement)
+          services=()
+
+          for component in "${components[@]}"; do
+            family="${PROJECT_NAME}-${environment}-${component}-task"
+            service="${PROJECT_NAME}-${environment}-${component}-service"
+            image="${ECR_REGISTRY}/${PROJECT_NAME}/${component}:${IMAGE_TAG}"
+
+            aws ecs describe-task-definition \
+              --task-definition "${family}" \
+              --query taskDefinition > task-definition.json
+
+            jq --arg container "${component}" --arg image "${image}" '
+              .containerDefinitions |= map(
+                if .name == $container then .image = $image else . end
+              )
+              | del(
+                  .taskDefinitionArn,
+                  .revision,
+                  .status,
+                  .requiresAttributes,
+                  .compatibilities,
+                  .registeredAt,
+                  .registeredBy
+                )
+            ' task-definition.json > task-definition-new.json
+
+            task_definition_arn="$(aws ecs register-task-definition \
+              --cli-input-json file://task-definition-new.json \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)"
+
+            aws ecs update-service \
+              --cluster "${cluster}" \
+              --service "${service}" \
+              --task-definition "${task_definition_arn}" \
+              --no-cli-pager > /dev/null
+
+            services+=("${service}")
+          done
+
+          aws ecs wait services-stable \
+            --cluster "${cluster}" \
+            --services "${services[@]}"
+
+  smoke-staging:
+    name: Smoke tests staging
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Test safe staging endpoints
+        shell: bash
+        env:
+          BASE_URL: ${{ vars.STAGING_BASE_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${BASE_URL%/}/health" > /dev/null
+          curl --fail --silent --show-error \
+            --request OPTIONS \
+            "${BASE_URL%/}/api/recrutement/candidats" > /dev/null
+
+  deploy-production:
+    name: Deploy production
+    needs: [build-push, smoke-staging]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Register task definitions and update production services
+        shell: bash
+        env:
+          ECR_REGISTRY: ${{ needs.build-push.outputs.registry }}
+        run: |
+          set -euo pipefail
+          environment=production
+          cluster="${PROJECT_NAME}-${environment}-cluster"
+          components=(frontend api-gateway auth paie conges recrutement)
+          services=()
+
+          for component in "${components[@]}"; do
+            family="${PROJECT_NAME}-${environment}-${component}-task"
+            service="${PROJECT_NAME}-${environment}-${component}-service"
+            image="${ECR_REGISTRY}/${PROJECT_NAME}/${component}:${IMAGE_TAG}"
+
+            aws ecs describe-task-definition \
+              --task-definition "${family}" \
+              --query taskDefinition > task-definition.json
+
+            jq --arg container "${component}" --arg image "${image}" '
+              .containerDefinitions |= map(
+                if .name == $container then .image = $image else . end
+              )
+              | del(
+                  .taskDefinitionArn,
+                  .revision,
+                  .status,
+                  .requiresAttributes,
+                  .compatibilities,
+                  .registeredAt,
+                  .registeredBy
+                )
+            ' task-definition.json > task-definition-new.json
+
+            task_definition_arn="$(aws ecs register-task-definition \
+              --cli-input-json file://task-definition-new.json \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)"
+
+            aws ecs update-service \
+              --cluster "${cluster}" \
+              --service "${service}" \
+              --task-definition "${task_definition_arn}" \
+              --no-cli-pager > /dev/null
+
+            services+=("${service}")
+          done
+
+          aws ecs wait services-stable \
+            --cluster "${cluster}" \
+            --services "${services[@]}"
+
+  smoke-production:
+    name: Smoke tests production
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Test safe production endpoints
+        shell: bash
+        env:
+          BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "${BASE_URL%/}/health" > /dev/null
+          curl --fail --silent --show-error \
+            --request OPTIONS \
+            "${BASE_URL%/}/api/recrutement/candidats" > /dev/null

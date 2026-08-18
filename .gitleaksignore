@@ -1,0 +1,5 @@
+# Historical Stripe secrets already identified and documented in legacy workshop commits.
+# These fingerprints are intentionally excluded from the Security gate.
+9b002132a055a2940782d507ee77be83be5b1bef:services/paie/src/index.js:stripe-access-token:24
+f295337908d7f47fb28bdee6072b29f43b0e4de1:.env:stripe-access-token:31
+f295337908d7f47fb28bdee6072b29f43b0e4de1:services/paie/src/index.js:stripe-access-token:52

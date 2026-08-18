@@ -1,0 +1,12 @@
+# Valeurs entierement fictives : ne pas utiliser pour un deploiement reel.
+project_name = "example-project"
+aws_region   = "eu-west-3"
+github_repository = "example-owner/example-repository"
+repository_names = [
+  "frontend",
+  "api-gateway",
+  "auth",
+  "paie",
+  "conges",
+  "recrutement"
+]

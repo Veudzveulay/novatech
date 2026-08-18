@@ -3,15 +3,22 @@ dist/
 build/
 .DS_Store
 
-# ── Secrets — ajouté au J2 ───────────────────────────────────────────────────
-# ATTENTION : .env est DÉJÀ suivi par Git depuis le commit 24b295b. Cette ligne
-# empêche de nouveaux ajouts mais ne retire pas le fichier de l'historique.
-# La purge relève de la remédiation (cf. docs/blocages-inter-livrables.md § B-02).
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+crash.log
+crash.*.log
+
+# Secrets
 .env
 .env.*
 !.env.example
 
-# ── Artefacts de test (L2) ───────────────────────────────────────────────────
+# Artefacts de test (J2)
 coverage/
 playwright-report/
 test-results/

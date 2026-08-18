@@ -1,0 +1,25 @@
+# Valeurs entièrement fictives : ne pas utiliser pour un déploiement réel.
+project_name       = "example-project"
+environment        = "staging"
+aws_region         = "eu-west-3"
+vpc_cidr           = "10.10.0.0/16"
+availability_zones = ["eu-west-3a", "eu-west-3b"] # Exemple fictif, zones à confirmer.
+public_subnet_cidrs = ["10.10.0.0/24", "10.10.1.0/24"]
+private_subnet_cidrs = ["10.10.10.0/24", "10.10.11.0/24"]
+budget_limit_eur    = 10
+feature_recruitment_enabled = true # Passer a false pour bloquer temporairement les routes recrutement.
+image_uris = {
+  frontend     = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/frontend:sha-example"
+  api-gateway  = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/api-gateway:sha-example"
+  auth         = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/auth:sha-example"
+  paie         = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/paie:sha-example"
+  conges       = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/conges:sha-example"
+  recrutement  = "000000000000.dkr.ecr.eu-west-3.amazonaws.com/example-project/recrutement:sha-example"
+}
+db_name                    = "novatechstaging"
+db_username                = "staging_admin"
+db_instance_class          = "db.t4g.micro"
+db_allocated_storage       = 20
+db_backup_retention_period = 1
+db_deletion_protection     = false
+db_skip_final_snapshot     = true

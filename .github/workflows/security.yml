@@ -3,10 +3,6 @@
 name: Security
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
   schedule:
     - cron: '0 6 * * 1'
   workflow_call:
@@ -89,7 +85,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Analyse des dépendances et des fichiers de configuration
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -98,16 +94,22 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           format: table
+          trivyignores: .trivyignore
+          skip-dirs: .e2e-uploads,.git,node_modules,frontend/build,playwright-report,test-results
+          skip-files: .env,.env.*
 
       - name: Rapport SARIF (toujours produit, même si l'étape précédente échoue)
         if: always()
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
           format: sarif
           output: trivy-fs.sarif
+          trivyignores: .trivyignore
+          skip-dirs: .e2e-uploads,.git,node_modules,frontend/build,playwright-report,test-results
+          skip-files: .env,.env.*
 
       - name: Publication du rapport Trivy
         if: always()
@@ -121,24 +123,40 @@ jobs:
   trivy-images:
     name: Trivy (images Docker)
     runs-on: ubuntu-latest
-    if: false # ← à retirer quand `docker build --target prod` fonctionne
     strategy:
       fail-fast: false
       matrix:
-        unite: [front, api-gateway, auth, paie, conges, recrutement]
+        include:
+          - unite: front
+            dockerfile: frontend/Dockerfile
+            context: frontend
+          - unite: api-gateway
+            dockerfile: services/api-gateway/Dockerfile
+            context: services/api-gateway
+          - unite: auth
+            dockerfile: services/auth/Dockerfile
+            context: services/auth
+          - unite: paie
+            dockerfile: services/paie/Dockerfile
+            context: services/paie
+          - unite: conges
+            dockerfile: services/conges/Dockerfile
+            context: services/conges
+          - unite: recrutement
+            dockerfile: services/recrutement/Dockerfile
+            context: services/recrutement
     steps:
       - uses: actions/checkout@v4
 
       - name: Construction de l'image ${{ matrix.unite }} (cible prod)
         run: |
           docker build \
-            --target prod \
             -t hrflow-${{ matrix.unite }}:ci \
-            -f docker/${{ matrix.unite }}/Dockerfile \
-            ./docker/${{ matrix.unite }}
+            -f ${{ matrix.dockerfile }} \
+            "${{ matrix.context }}"
 
       - name: Analyse de l'image
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: hrflow-${{ matrix.unite }}:ci
@@ -177,8 +195,6 @@ jobs:
       JWT_SECRET: secret_de_scan_ci
       # Garde-fou : aucun appel sortant vers Stripe pendant le scan.
       STRIPE_SECRET_KEY: sk_test_scan_ci
-      HTTP_PROXY: http://127.0.0.1:9
-      HTTPS_PROXY: http://127.0.0.1:9
 
     steps:
       - uses: actions/checkout@v4
@@ -199,6 +215,8 @@ jobs:
       - name: Démarrage des 4 services et de la passerelle
         run: |
           node services/auth/src/server.js &
+          HTTP_PROXY=http://127.0.0.1:9 \
+          HTTPS_PROXY=http://127.0.0.1:9 \
           node services/paie/src/server.js &
           node services/conges/src/server.js &
           node services/recrutement/src/server.js &
@@ -212,10 +230,10 @@ jobs:
           mkdir -p zap-report && chmod 777 zap-report
           docker run --rm --network host \
             -v "$PWD/zap-report:/zap/wrk:rw" \
-            -v "$PWD/.zap-rules.tsv:/zap/rules.tsv:ro" \
+            -v "$PWD/.zap-rules.tsv:/zap/wrk/rules.tsv:ro" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-              -t http://127.0.0.1:3000 \
+              -t http://127.0.0.1:3000/health \
               -c rules.tsv \
               -r rapport-zap.html \
               -w rapport-zap.md \
@@ -239,7 +257,7 @@ jobs:
   verdict:
     name: Verdict sécurité
     runs-on: ubuntu-latest
-    needs: [secrets, dependances, trivy-sources, zap-baseline]
+    needs: [secrets, dependances, trivy-sources, trivy-images, zap-baseline]
     if: always()
     steps:
       - name: Échec si l'un des contrôles a échoué
@@ -247,6 +265,7 @@ jobs:
           echo "secrets      : ${{ needs.secrets.result }}"
           echo "dependances  : ${{ needs.dependances.result }}"
           echo "trivy-sources: ${{ needs.trivy-sources.result }}"
+          echo "trivy-images : ${{ needs.trivy-images.result }}"
           echo "zap-baseline : ${{ needs.zap-baseline.result }}"
           if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
             echo "::error::Le stage Security a détecté au moins un problème bloquant."

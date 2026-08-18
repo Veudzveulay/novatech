@@ -72,6 +72,8 @@ describe('Routage vers les services', () => {
     const res = await request(app).get('/pas-une-route')
 
     expect(res.status).toBe(404)
+    expect(res.type).toMatch(/json/)
+    expect(res.body).toEqual({ error: 'Not Found' })
   })
 
   test('les cibles sont surchargeables par variables d’environnement (nécessaire au docker-compose du L1)', () => {
@@ -81,6 +83,18 @@ describe('Routage vers les services', () => {
       expect(appIsole.TARGETS.auth).toBe('http://auth:3001')
       delete process.env.AUTH_URL
     })
+  })
+
+  test('le feature flag désactive la route recrutement', async () => {
+    process.env.FEATURE_RECRUITMENT_ENABLED = 'false'
+    let appIsole
+    jest.isolateModules(() => {
+      appIsole = require('../../services/api-gateway/src/app')
+    })
+    const res = await request(appIsole).get('/api/recrutement/candidats')
+    delete process.env.FEATURE_RECRUITMENT_ENABLED
+
+    expect(res.status).toBe(404)
   })
 })
 
@@ -102,12 +116,28 @@ describe('Sécurité de la passerelle — défauts connus', () => {
     expect(res.body.proxyAtteint).toBe(true)
   })
 
-  test('VULN-09 : le CORS autorise toutes les origines, méthodes et en-têtes', async () => {
+  test('VULN-09 corrigée : le CORS refuse une origine non autorisée', async () => {
     const res = await request(app).get('/health').set('Origin', 'https://site-malveillant.example')
 
-    expect(res.headers['access-control-allow-origin']).toBe('*')
-    expect(res.headers['access-control-allow-methods']).toBe('*')
-    expect(res.headers['access-control-allow-headers']).toBe('*')
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+    expect(res.headers['access-control-allow-methods']).not.toBe('*')
+    expect(res.headers['access-control-allow-headers']).not.toBe('*')
+  })
+
+  test('VULN-09 corrigée : le CORS accepte une origine de la liste blanche', async () => {
+    const res = await request(app).get('/health').set('Origin', 'http://localhost:3000')
+
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000')
+    expect(res.headers.vary).toContain('Origin')
+  })
+
+  test('les réponses API interdisent le cache et appliquent une CSP complète', async () => {
+    const res = await request(app).get('/health')
+
+    expect(res.headers['cache-control']).toBe('no-store')
+    expect(res.headers['content-security-policy']).toContain("default-src 'none'")
+    expect(res.headers['content-security-policy']).toContain("script-src 'none'")
+    expect(res.headers['content-security-policy']).toContain("style-src 'none'")
   })
 
   test('VULN-10 : le gestionnaire d’erreurs renvoie la trace d’exécution au client', async () => {

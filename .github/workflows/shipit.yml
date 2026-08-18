@@ -1,0 +1,41 @@
+name: ShipIt Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+  security-events: write
+  id-token: write
+
+concurrency:
+  group: shipit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Stage 1 - Build
+    uses: ./.github/workflows/ci.yml
+
+  test:
+    name: Stage 2 - Test
+    needs: build
+    uses: ./.github/workflows/test.yml
+
+  security:
+    name: Stage 3 - Security
+    needs: test
+    uses: ./.github/workflows/security.yml
+
+  deploy:
+    name: Stages 4-5 - Staging and Production
+    needs: security
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy-j3.yml
+    secrets: inherit
