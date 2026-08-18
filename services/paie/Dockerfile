@@ -1,15 +1,19 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-bookworm-slim
+FROM node:24-bookworm-slim
 
 ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm ci --omit=dev \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --chown=node:node src ./src
 
 USER node
 EXPOSE 3002
-CMD ["npm", "start"]
+CMD ["node", "src/server.js"]

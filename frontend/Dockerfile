@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-bookworm-slim AS build
+FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -11,7 +11,9 @@ COPY public ./public
 COPY src ./src
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.28-alpine AS runtime
+
+RUN apk upgrade --no-cache
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build /usr/share/nginx/html

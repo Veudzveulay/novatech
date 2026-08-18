@@ -1,15 +1,20 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-bookworm-slim AS production-dependencies
+FROM node:24-bookworm-slim AS production-dependencies
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app
 
@@ -21,4 +26,4 @@ USER node
 
 EXPOSE 3001
 
-CMD ["npm", "start"]
+CMD ["node", "src/server.js"]
