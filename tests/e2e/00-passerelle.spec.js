@@ -73,14 +73,12 @@ test.describe('Parcours 0 — Routage de la passerelle', () => {
     expect(sansJeton.status()).not.toBe(401)
   })
 
-  test('VULN-09 : le CORS reste totalement ouvert, y compris sur une route en 404', async ({ request }) => {
+  test('VULN-09 corrigée : le CORS refuse une origine non autorisée', async ({ request }) => {
     const reponse = await request.get(`${GATEWAY}/api/auth/login`, {
       headers: { Origin: 'https://site-malveillant.example' },
     })
 
-    // Le middleware CORS s'applique avant le routage : les en-têtes permissifs
-    // sont posés même sur une réponse d'erreur.
-    expect(reponse.headers()['access-control-allow-origin']).toBe('*')
-    expect(reponse.headers()['access-control-allow-methods']).toBe('*')
+    expect(reponse.headers()['access-control-allow-origin']).toBeUndefined()
+    expect(reponse.headers()['access-control-allow-methods']).not.toBe('*')
   })
 })

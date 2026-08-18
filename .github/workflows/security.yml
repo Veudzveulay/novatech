@@ -233,7 +233,7 @@ jobs:
             -v "$PWD/.zap-rules.tsv:/zap/wrk/rules.tsv:ro" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-              -t http://127.0.0.1:3000 \
+              -t http://127.0.0.1:3000/health \
               -c rules.tsv \
               -r rapport-zap.html \
               -w rapport-zap.md \

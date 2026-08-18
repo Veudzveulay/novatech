@@ -114,12 +114,19 @@ describe('Sécurité de la passerelle — défauts connus', () => {
     expect(res.body.proxyAtteint).toBe(true)
   })
 
-  test('VULN-09 : le CORS autorise toutes les origines, méthodes et en-têtes', async () => {
+  test('VULN-09 corrigée : le CORS refuse une origine non autorisée', async () => {
     const res = await request(app).get('/health').set('Origin', 'https://site-malveillant.example')
 
-    expect(res.headers['access-control-allow-origin']).toBe('*')
-    expect(res.headers['access-control-allow-methods']).toBe('*')
-    expect(res.headers['access-control-allow-headers']).toBe('*')
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+    expect(res.headers['access-control-allow-methods']).not.toBe('*')
+    expect(res.headers['access-control-allow-headers']).not.toBe('*')
+  })
+
+  test('VULN-09 corrigée : le CORS accepte une origine de la liste blanche', async () => {
+    const res = await request(app).get('/health').set('Origin', 'http://localhost:3000')
+
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000')
+    expect(res.headers.vary).toContain('Origin')
   })
 
   test('VULN-10 : le gestionnaire d’erreurs renvoie la trace d’exécution au client', async () => {
