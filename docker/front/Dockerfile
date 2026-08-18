@@ -5,16 +5,13 @@ ARG NGINX_VERSION=1.27-alpine
 
 FROM node:${NODE_VERSION} AS build
 
-WORKDIR /app
+WORKDIR /app/frontend
 
-COPY package.json package-lock.json ./
-COPY frontend/package.json ./frontend/package.json
+COPY frontend/package.json frontend/package-lock.json ./
 
 RUN npm ci
 
-COPY frontend ./frontend
-
-WORKDIR /app/frontend
+COPY frontend ./
 
 RUN npm run build
 
