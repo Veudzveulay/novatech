@@ -129,6 +129,15 @@ describe('Sécurité de la passerelle — défauts connus', () => {
     expect(res.headers.vary).toContain('Origin')
   })
 
+  test('les réponses API interdisent le cache et appliquent une CSP complète', async () => {
+    const res = await request(app).get('/health')
+
+    expect(res.headers['cache-control']).toBe('no-store')
+    expect(res.headers['content-security-policy']).toContain("default-src 'none'")
+    expect(res.headers['content-security-policy']).toContain("script-src 'none'")
+    expect(res.headers['content-security-policy']).toContain("style-src 'none'")
+  })
+
   test('VULN-10 : le gestionnaire d’erreurs renvoie la trace d’exécution au client', async () => {
     const res = await request(app).get('/api/auth/login').set('x-simuler-erreur', '1')
 

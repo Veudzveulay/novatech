@@ -19,6 +19,7 @@
 10038	IGNORE	CSP absente — API JSON, sans effet ; à poser côté frontend quand il sera démarrable
 10037	IGNORE	En-tête X-Powered-By d'Express — à désactiver dans la remédiation (app.disable('x-powered-by'))
 10036	IGNORE	Bannière de version du serveur — même remédiation que 10037
+10049	IGNORE	Réponses API volontairement non stockables — Cache-Control no-store protège les données RH
 
 # ── Constats connus GRAVES : volontairement laissés bloquants ────────────────
 # Ces deux règles correspondent à des vulnérabilités confirmées par les tests

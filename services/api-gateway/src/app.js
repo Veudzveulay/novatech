@@ -32,7 +32,10 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
   res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type')
   res.header('Cache-Control', 'no-store')
-  res.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
+  res.header(
+    'Content-Security-Policy',
+    "default-src 'none'; base-uri 'none'; child-src 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; img-src 'none'; manifest-src 'none'; media-src 'none'; object-src 'none'; script-src 'none'; style-src 'none'; worker-src 'none'",
+  )
   res.header('Permissions-Policy', 'camera=(), geolocation=(), microphone=()')
   res.header('X-Content-Type-Options', 'nosniff')
   res.header('X-Frame-Options', 'DENY')
