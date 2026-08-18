@@ -12,3 +12,19 @@ build/
 *.tfplan
 crash.log
 crash.*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Artefacts de test (J2)
+coverage/
+playwright-report/
+test-results/
+.e2e-uploads/
+npm-audit.json
+npm-audit.html
+gitleaks-report.sarif
+trivy-fs.sarif
+zap-report/
