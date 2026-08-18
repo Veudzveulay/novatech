@@ -56,6 +56,10 @@ if (FEATURE_RECRUITMENT_ENABLED) {
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' })
+})
+
 app.use((err, req, res, next) => {
   console.error(err.stack)
   res.status(500).json({ error: err.message, stack: err.stack })

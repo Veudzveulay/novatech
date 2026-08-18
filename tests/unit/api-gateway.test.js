@@ -72,6 +72,8 @@ describe('Routage vers les services', () => {
     const res = await request(app).get('/pas-une-route')
 
     expect(res.status).toBe(404)
+    expect(res.type).toMatch(/json/)
+    expect(res.body).toEqual({ error: 'Not Found' })
   })
 
   test('les cibles sont surchargeables par variables d’environnement (nécessaire au docker-compose du L1)', () => {
