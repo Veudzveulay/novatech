@@ -9,7 +9,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: novatech-sas
+  IMAGE_NAMESPACE: veudzveulay
 
 jobs:
   lint-and-typecheck:
