@@ -39,16 +39,16 @@ test.describe('Parcours 1 — Connexion et accès refusé', () => {
     expect(await reponse.json()).toEqual({ error: 'Invalid credentials' })
   })
 
-  test('VULN-01 : une injection SQL délivre un jeton de rôle rh', async ({ request }) => {
+  test('VULN-01 corrigée : une injection SQL ne permet pas de s’authentifier', async ({ request }) => {
     const reponse = await request.post(`${AUTH}/auth/login`, {
       data: { email: "' OR '1'='1", password: 'Password123!' },
     })
 
-    expect(reponse.status()).toBe(200)
-    expect((await reponse.json()).user.role).toBe('rh')
+    expect(reponse.status()).toBe(401)
+    expect(await reponse.json()).toEqual({ error: 'Invalid credentials' })
   })
 
-  test('VULN-05 : sans aucun jeton, les données de congés et de recrutement sont accessibles', async ({ request }) => {
+  test('VULN-05 : les routes métier restent publiques mais la route debug est supprimée', async ({ request }) => {
     // Aucun en-tête Authorization. Un contrôle d'accès digne de ce nom
     // renverrait 401 sur les trois appels.
     const conges = await request.get(`${CONGES}/conges/solde/1`)
@@ -58,9 +58,7 @@ test.describe('Parcours 1 — Connexion et accès refusé', () => {
     expect(candidats.status()).toBe(200)
 
     const debug = await request.get(`${CONGES}/conges/debug/all`)
-    expect(debug.status()).toBe(200)
-    const donnees = await debug.json()
-    expect(donnees[0]).toHaveProperty('salaire_mensuel_brut')
+    expect(debug.status()).toBe(404)
   })
 
   test('VULN-05 : un jeton manifestement invalide ne change rien', async ({ request }) => {

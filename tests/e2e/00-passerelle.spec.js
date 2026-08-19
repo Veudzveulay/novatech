@@ -1,13 +1,4 @@
-/**
- * Parcours 0 — L'API Gateway ne route rien (BUG-12).
- *
- * `app.use('/api/auth', createProxyMiddleware({ target }))` transmet le chemin
- * d'origine sans retirer le préfixe de montage : le service auth reçoit
- * `/api/auth/login` alors que sa route est `/auth/login`. Aucun service
- * n'expose de route sous `/api/`, et nginx ne réécrit rien en amont.
- *
- * Correctif (remédiation) : `pathRewrite: { '^/api': '' }` sur chaque proxy.
- */
+/** Parcours 0 — Routage de l'API Gateway après correction de BUG-12. */
 const { test, expect } = require('@playwright/test')
 const { GATEWAY, AUTH, PAIE, CONGES, RECRUTEMENT } = require('./cibles')
 
@@ -19,11 +10,12 @@ test.describe('Parcours 0 — Routage de la passerelle', () => {
     expect(await reponse.json()).toEqual({ status: 'ok' })
   })
 
-  test('BUG-12 : une connexion valide échoue en 404 à travers la passerelle', async ({ request }) => {
+  test('BUG-12 corrigé : une connexion valide traverse la passerelle', async ({ request }) => {
     const parLaPasserelle = await request.post(`${GATEWAY}/api/auth/login`, {
       data: { email: 'rh@novatech.io', password: 'Password123!' },
     })
-    expect(parLaPasserelle.status()).toBe(404)
+    expect(parLaPasserelle.status()).toBe(200)
+    expect((await parLaPasserelle.json()).token).toBeTruthy()
 
     // Exactement la même requête, adressée directement au service : 200.
     const enDirect = await request.post(`${AUTH}/auth/login`, {
@@ -33,21 +25,21 @@ test.describe('Parcours 0 — Routage de la passerelle', () => {
     expect((await enDirect.json()).token).toBeTruthy()
   })
 
-  test('BUG-12 : les 4 services sont injoignables par la passerelle', async ({ request }) => {
+  test('BUG-12 corrigé : les 4 services sont routés par la passerelle', async ({ request }) => {
     const appels = [
-      ['/api/auth/verify', 'POST'],
-      ['/api/paie/calculer', 'POST'],
-      ['/api/conges/solde/1', 'GET'],
-      ['/api/recrutement/candidats', 'GET'],
+      ['/api/auth/verify', 'POST', 401],
+      ['/api/paie/calculer', 'POST', 404],
+      ['/api/conges/solde/1', 'GET', 200],
+      ['/api/recrutement/candidats', 'GET', 200],
     ]
 
-    for (const [chemin, methode] of appels) {
+    for (const [chemin, methode, statutAttendu] of appels) {
       const reponse =
         methode === 'GET'
           ? await request.get(`${GATEWAY}${chemin}`)
           : await request.post(`${GATEWAY}${chemin}`, { data: {} })
 
-      expect(reponse.status(), `${methode} ${chemin}`).toBe(404)
+      expect(reponse.status(), `${methode} ${chemin}`).toBe(statutAttendu)
     }
   })
 
@@ -59,17 +51,16 @@ test.describe('Parcours 0 — Routage de la passerelle', () => {
     ).toBe(200)
   })
 
-  test('VULN-05 : la passerelle ne renvoie jamais 401 — elle n’authentifie rien', async ({ request }) => {
-    // Sans jeton comme avec un jeton bidon, la réponse est identique : 404,
-    // c'est-à-dire une erreur de ROUTAGE, jamais une erreur d'AUTHENTIFICATION.
-    // Aucun contrôle d'accès n'est appliqué, il n'y a rien à contourner.
+  test('VULN-05 : le routage corrigé ne fournit toujours pas de contrôle d’accès', async ({ request }) => {
+    // Le correctif de routage ne constitue pas un contrôle d'accès : sans
+    // jeton comme avec un jeton bidon, la route métier reste accessible.
     const sansJeton = await request.get(`${GATEWAY}/api/conges/solde/1`)
     const avecJetonBidon = await request.get(`${GATEWAY}/api/conges/solde/1`, {
       headers: { Authorization: 'Bearer ceci-nest-pas-un-jeton' },
     })
 
-    expect(sansJeton.status()).toBe(404)
-    expect(avecJetonBidon.status()).toBe(404)
+    expect(sansJeton.status()).toBe(200)
+    expect(avecJetonBidon.status()).toBe(200)
     expect(sansJeton.status()).not.toBe(401)
   })
 
