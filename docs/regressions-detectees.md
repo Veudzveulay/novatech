@@ -1,8 +1,14 @@
 # Défauts détectés par la suite de tests
 
-> Livrable **L2** · établi le 23/07/2026
-> **23 défauts** confirmés par des tests exécutables. **Aucun n'a été corrigé** :
-> la correction relève du plan de remédiation, pas du livrable Tests.
+> Livrable **L2** · établi le 23/07/2026 · remédiation synchronisée le 19/08/2026
+> **23 défauts** confirmés par des tests exécutables. **3 corrigés à ce jour**
+> (VULN-02, VULN-03, VULN-09), les 20 autres restent ouverts.
+>
+> Le L2 n'a corrigé aucun défaut : il les a constatés. Les corrections
+> ci-dessous ont été apportées pendant la remédiation du J3 (Anna), et **chaque
+> correction s'accompagne de la réécriture du test en non-régression** — c'est
+> exactement le mécanisme prévu par ce document. Voir l'état détaillé en fin de
+> fichier.
 
 ---
 
@@ -58,7 +64,7 @@ Aggravant : `server.js` journalise `JWT_SECRET` au démarrage.
 **Démontré par** : `tests/unit/auth.test.js` — sans `JWT_SECRET` défini, le
 jeton émis se vérifie avec le secret du dépôt.
 
-- [ ] Corrigé — supprimer le repli, échouer au démarrage si la variable est absente
+- [x] **Corrigé (19/08)** — repli codé en dur supprimé ; le test asserte désormais qu'aucun secret du dépôt ne fait foi.
 
 ---
 
@@ -74,7 +80,7 @@ part avec `Bearer sk_live_51NovaTech2021...`.
 E2E démarrent le service de paie derrière un proxy mort. Aucun appel sortant ne
 quitte l'environnement de test.
 
-- [ ] Corrigé — supprimer le repli, mettre la clé en secret CI
+- [x] **Corrigé (19/08)** — clé `sk_live_` en dur supprimée ; sans `STRIPE_SECRET_KEY`, aucun appel n'est émis (test SECURITY dans `paie.test.js`).
 
 ---
 
@@ -165,7 +171,7 @@ chemins des CV), sans jeton, sans `LIMIT`.
 **Démontré par** : `tests/unit/api-gateway.test.js`, `tests/e2e/01-authentification.spec.js`.
 Marqué `FAIL` dans `.zap-rules.tsv` : ce constat fait échouer le stage Security.
 
-- [ ] Corrigé — liste blanche d'origines par environnement
+- [x] **Corrigé (19/08)** — CORS restreint à une liste blanche d'origines ; le test asserte le refus d'une origine non autorisée (`api-gateway.test.js`, `00-passerelle.spec.js`).
 
 ---
 
@@ -453,6 +459,39 @@ chaîne, deux comportements opposés face à la même configuration manquante.
 | **Total** | **11** | **12** | **23** |
 
 Les défauts BUG-06 et VULN-05 sont **transverses** : ils affectent les 5 services.
+
+## État de la remédiation (au 19/08/2026)
+
+La remédiation est menée au fil du J3 par Anna. À date, **3 défauts corrigés, 20
+ouverts**. Chaque correction s'accompagne de la réécriture du test constatant le
+défaut en test de non-régression — la suite reste verte.
+
+### Corrigés et vérifiés
+
+| Défaut | Correction | Preuve |
+|---|---|---|
+| **VULN-02** — secret JWT en dur | repli codé en dur supprimé | plus aucune occurrence du secret dans `auth/src/app.js` |
+| **VULN-03** — clé Stripe en dur | clé `sk_live_` supprimée, aucun appel sans `STRIPE_SECRET_KEY` | test `SECURITY` dans `paie.test.js` |
+| **VULN-09** — CORS ouvert | liste blanche d'origines | tests « VULN-09 corrigée » dans `api-gateway.test.js` et `00-passerelle.spec.js` |
+
+### Durcissement ajouté (au-delà des 23 défauts catalogués)
+
+- en-têtes de sécurité sur les réponses API : **CSP** (`default-src 'none'`) et **`Cache-Control: no-store`** ;
+- erreurs **404 renvoyées en JSON** (et non en HTML Express) ;
+- images Docker : **CVE corrigées** (montée de `multer` en 2.x, image nginx à jour) ;
+- **feature flag** sur la route recrutement (`FEATURE_RECRUITMENT_ENABLED`).
+
+> Note : la montée de `multer` en 2.x corrige la **CVE de la dépendance**, mais
+> **VULN-07 reste ouverte** — l'upload n'a toujours ni `fileFilter` ni `limits`,
+> et le test continue de le constater.
+
+### Toujours ouverts — 20 défauts
+
+Tous les autres, dont les plus graves : **VULN-01** (injection SQL), **VULN-05**
+(aucune authentification sur la passerelle), **VULN-06** (endpoint de debug RH),
+**VULN-11** (journaux exposés par nginx), **BUG-01** (déni de service), **BUG-12**
+(la passerelle ne route rien). Ils restent constatés par des tests verts —
+c'est-à-dire prêts à basculer en non-régression dès qu'ils seront corrigés.
 
 ### Les trois défauts découverts par l'exécution réelle
 
