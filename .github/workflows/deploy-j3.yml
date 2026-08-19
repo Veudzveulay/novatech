@@ -18,8 +18,21 @@ env:
   IMAGE_TAG: sha-${{ github.sha }}
 
 jobs:
+  validate-config:
+    name: Validate GitHub deployment variables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required repository variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${AWS_REGION:?Configure the repository variable AWS_REGION}"
+          : "${AWS_DEPLOY_ROLE_ARN:?Configure the repository variable AWS_DEPLOY_ROLE_ARN}"
+          : "${PROJECT_NAME:?Configure the repository variable PROJECT_NAME}"
+
   build-push:
     name: Build and push six images
+    needs: validate-config
     runs-on: ubuntu-latest
     outputs:
       registry: ${{ steps.login-ecr.outputs.registry }}
@@ -133,6 +146,7 @@ jobs:
           BASE_URL: ${{ vars.STAGING_BASE_URL }}
         run: |
           set -euo pipefail
+          : "${BASE_URL:?Configure STAGING_BASE_URL for the staging environment}"
           curl --fail --silent --show-error "${BASE_URL%/}/health" > /dev/null
           curl --fail --silent --show-error \
             --request OPTIONS \
@@ -214,6 +228,7 @@ jobs:
           BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
         run: |
           set -euo pipefail
+          : "${BASE_URL:?Configure PRODUCTION_BASE_URL for the production environment}"
           curl --fail --silent --show-error "${BASE_URL%/}/health" > /dev/null
           curl --fail --silent --show-error \
             --request OPTIONS \
