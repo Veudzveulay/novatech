@@ -8,27 +8,16 @@ présenté comme réussi.
 
 ## Relation avec la CI J1
 
-Le dépôt ne contient actuellement aucun workflow CI J1 exploitable. Le seul
-workflow trouvé était l'ancien déploiement SSH de 2021. Pour ne pas inventer le
-nom ou les jobs de J1, le nouveau fichier `.github/workflows/deploy-j3.yml` est
-un workflow réutilisable déclenché exclusivement par `workflow_call`.
+`.github/workflows/shipit.yml` orchestre les workflows réutilisables dans cet
+ordre strict : Build, Test, Security, puis CD J3. Le job CD dépend de Security
+et ne s'exécute que pour un push ou un lancement manuel sur `main`, jamais sur
+une pull request.
 
-Après les jobs Build, Test et Security réussis sur `main`, la future CI J1 devra
-ajouter un job de cette forme :
-
-```yaml
-deploy-j3:
-  if: github.ref == 'refs/heads/main'
-  needs: [build, test, security]
-  permissions:
-    id-token: write
-    contents: read
-  uses: ./.github/workflows/deploy-j3.yml
-```
-
-Les noms de `needs` devront reprendre les identifiants réels de la CI J1. Cette
-jonction rendra le chemin automatique sans approbation entre staging et
-production. Elle n'est pas ajoutée tant que J1 n'est pas présent dans ce dépôt.
+Dans `.github/workflows/deploy-j3.yml`, la production dépend du smoke test
+staging, qui dépend lui-même du déploiement staging. Une erreur Build, Test,
+Security, publication ECR, déploiement staging ou smoke staging bloque donc la
+production. Les images ne sont construites qu'une fois et la production
+réutilise le même tag SHA que staging.
 
 ## Ancien déploiement SSH
 
@@ -45,7 +34,9 @@ confiance vérifie :
 
 - l'audience `sts.amazonaws.com` ;
 - le repository fourni par `github_repository` au format `owner/repository` ;
-- le sujet exact de la branche `main`.
+- le sujet exact de la branche `main` pour le job de publication ECR ;
+- les sujets GitHub `environment:staging` et `environment:production` pour les
+  jobs de déploiement associés à ces environnements.
 
 Le workflow utilise `id-token: write`, `contents: read` et
 `aws-actions/configure-aws-credentials`. Aucune clé AWS longue durée n'est
@@ -117,14 +108,33 @@ pipeline normal et sont décrits dans `j3-rollback-runbook.md`.
 
 ## Variables GitHub nécessaires
 
-Variables de repository non sensibles :
+Variables de repository non sensibles, requises avant l'authentification AWS :
 
-- `AWS_REGION` ;
+- `AWS_REGION` : région AWS réelle choisie pour le compte ; les valeurs des
+  fichiers `terraform.tfvars.example` sont fictives et ne doivent pas être
+  copiées sans confirmation ;
 - `AWS_DEPLOY_ROLE_ARN`, alimenté plus tard avec l'output Terraform
   `github_deploy_role_arn` ;
-- `PROJECT_NAME` ;
-- `STAGING_BASE_URL` ;
-- `PRODUCTION_BASE_URL`.
+- `PROJECT_NAME`, identique à la variable Terraform `project_name`.
+
+Variables non sensibles des environnements GitHub :
+
+- environnement `staging` : `STAGING_BASE_URL` ;
+- environnement `production` : `PRODUCTION_BASE_URL`.
+
+Les environnements GitHub doivent porter exactement les noms `staging` et
+`production`. Une règle d'approbation peut être ajoutée à `production` dans les
+Settings sans modifier le workflow. Le workflow vérifie explicitement les
+variables partagées avant tout appel AWS et chaque URL avant son smoke test.
 
 Les secrets applicatifs restent exclusivement dans AWS Secrets Manager. Aucune
-valeur réelle n'est fournie dans cette documentation.
+clé AWS longue durée ni aucun secret GitHub n'est requis par ce workflow, et
+aucune valeur réelle n'est fournie dans cette documentation.
+
+## État des validations et preuves
+
+Les validations locales de syntaxe, Terraform, tests, audits et images doivent
+être consignées avec leur commande et leur résultat réel. Elles ne prouvent pas
+un déploiement AWS. Restent nécessairement à exécuter, avec autorisation et sur
+le compte cible : création de l'infrastructure, publication ECR, déploiements,
+smoke tests sur les URL réelles et démonstration chronométrée du rollback.
