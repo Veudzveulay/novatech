@@ -1,4 +1,5 @@
 const { Pool } = require('pg')
+const fs = require('fs')
 
 function resolveDatabaseUrl() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
@@ -22,6 +23,13 @@ function resolveDatabaseUrl() {
   return `postgresql://${user}:${password}@${process.env.DB_HOST}:${port}/${database}`
 }
 
-const pool = new Pool({ connectionString: resolveDatabaseUrl() })
+const ssl = process.env.DB_SSL === 'true'
+  ? {
+      ca: fs.readFileSync(process.env.DB_SSL_CA_PATH, 'utf8'),
+      rejectUnauthorized: true,
+    }
+  : undefined
+
+const pool = new Pool({ connectionString: resolveDatabaseUrl(), ssl })
 
 module.exports = { pool }

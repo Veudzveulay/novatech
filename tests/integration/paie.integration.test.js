@@ -136,28 +136,9 @@ describe('POST /paie/heures-sup — sur données réelles', () => {
 })
 
 describe('POST /paie/migrate — sur données réelles', () => {
-  test('VULN-04 : la route non authentifiée modifie réellement le schéma', async () => {
+  test('la route de migration n’est plus exposée', async () => {
     const res = await request(app).post('/paie/migrate').send({})
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ success: true })
-
-    // La colonne a bien été ajoutée par un appel HTTP anonyme.
-    const colonnes = await query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'employees' AND column_name = 'salaire_variable'"
-    )
-    expect(colonnes.rows).toHaveLength(1)
-  })
-
-  test('VULN-04 : elle réécrit updated_at sur toute la table employees', async () => {
-    const avant = await query('SELECT id, updated_at FROM employees ORDER BY id')
-
-    await new Promise((r) => setTimeout(r, 50))
-    await request(app).post('/paie/migrate').send({})
-
-    const apres = await query('SELECT id, updated_at FROM employees ORDER BY id')
-    for (let i = 0; i < avant.rows.length; i++) {
-      expect(apres.rows[i].updated_at.getTime()).toBeGreaterThan(avant.rows[i].updated_at.getTime())
-    }
+    expect(res.status).toBe(404)
   })
 })

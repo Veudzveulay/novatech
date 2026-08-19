@@ -68,6 +68,12 @@ describe('Routage vers les services', () => {
     }
   })
 
+  test('les 4 proxys retirent uniquement le préfixe /api', () => {
+    for (const options of CONFIGS_PROXY) {
+      expect(options.pathRewrite).toEqual({ '^/api': '' })
+    }
+  })
+
   test('une route inconnue retourne 404', async () => {
     const res = await request(app).get('/pas-une-route')
 
