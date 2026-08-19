@@ -128,13 +128,9 @@ describe('POST /conges/demande — sur données réelles', () => {
 })
 
 describe('GET /conges/debug/all — sur données réelles', () => {
-  test('VULN-06 confirmée en base : salaires et motifs d’absence sortent en clair', async () => {
+  test('la route de debug n’est plus exposée', async () => {
     const res = await request(app).get('/conges/debug/all')
 
-    expect(res.status).toBe(200)
-    expect(res.body.length).toBeGreaterThan(0)
-    expect(res.body[0]).toHaveProperty('salaire_mensuel_brut')
-    expect(res.body[0]).toHaveProperty('motif')
-    expect(res.body[0]).toHaveProperty('jours_conges_acquis')
+    expect(res.status).toBe(404)
   })
 })

@@ -171,39 +171,10 @@ describe('POST /conges/demande', () => {
 })
 
 describe('GET /conges/debug/all', () => {
-  test('VULN-06 : l’endpoint de debug expose toutes les données RH sans authentification', async () => {
-    pool.query.mockResolvedValue({
-      rows: [
-        {
-          id: 1,
-          employee_id: 1,
-          motif: 'Arrêt maladie longue durée',
-          nom: 'Durand',
-          prenom: 'Alice',
-          salaire_mensuel_brut: 3000,
-          jours_conges_acquis: 25,
-        },
-      ],
-    })
+  test('n’est plus exposé par le service', async () => {
+    const res = await request(app).get('/conges/debug/all')
 
-    const res = await request(app).get('/conges/debug/all') // aucun en-tête Authorization
-
-    expect(res.status).toBe(200)
-    // La jointure remonte la table employees : salaires et motifs d'absence
-    // (données de santé) sont accessibles à qui connaît l'URL.
-    expect(res.body[0]).toHaveProperty('salaire_mensuel_brut')
-    expect(res.body[0]).toHaveProperty('motif')
-    expect(pool.query.mock.calls[0][0]).toContain('JOIN employees')
-  })
-
-  test('VULN-06 : la requête ne filtre ni ne pagine, elle ramène toute la table', async () => {
-    pool.query.mockResolvedValue({ rows: [] })
-
-    await request(app).get('/conges/debug/all')
-
-    const sql = pool.query.mock.calls[0][0]
-    expect(sql).toContain('SELECT *')
-    expect(sql).not.toContain('LIMIT')
-    expect(sql).not.toContain('WHERE')
+    expect(res.status).toBe(404)
+    expect(pool.query).not.toHaveBeenCalled()
   })
 })

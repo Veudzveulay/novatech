@@ -61,13 +61,4 @@ app.post('/conges/demande', async (req, res) => {
   res.json(result.rows[0])
 })
 
-// Endpoint debug historique conservé pour l'instant
-app.get('/conges/debug/all', async (req, res) => {
-  const all = await pool.query(
-    'SELECT * FROM conges JOIN employees ON conges.employee_id = employees.id'
-  )
-
-  res.json(all.rows)
-})
-
 module.exports = app
