@@ -68,23 +68,6 @@ app.post('/paie/calculer', async (req, res) => {
   res.json(bulletin)
 })
 
-// Route de migration historique
-app.post('/paie/migrate', async (req, res) => {
-  console.log('[PAIE] Running migration...')
-
-  try {
-    await pool.query(`
-      ALTER TABLE employees ADD COLUMN IF NOT EXISTS salaire_variable DECIMAL(10,2) DEFAULT 0;
-      ALTER TABLE bulletins_paie ADD COLUMN IF NOT EXISTS periode_reference VARCHAR(7);
-      UPDATE employees SET updated_at = NOW();
-    `)
-
-    res.json({ success: true })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-})
-
 // Calcul majoré à 25 % pour les heures supplémentaires
 app.post('/paie/heures-sup', async (req, res) => {
   const { employeeId, heures } = req.body

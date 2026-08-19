@@ -25,7 +25,7 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = var.execution_role_arn
 
   container_definitions = jsonencode([
-    {
+    merge({
       name      = var.component_name
       image     = var.image_uri
       essential = true
@@ -62,7 +62,7 @@ resource "aws_ecs_task_definition" "this" {
           awslogs-stream-prefix = var.component_name
         }
       }
-    }
+    }, var.container_user == null ? {} : { user = var.container_user })
   ])
 
   tags = local.common_tags

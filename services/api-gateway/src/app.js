@@ -47,11 +47,17 @@ app.use((req, res, next) => {
   next()
 })
 
-app.use('/api/auth', createProxyMiddleware({ target: TARGETS.auth, changeOrigin: true }))
-app.use('/api/paie', createProxyMiddleware({ target: TARGETS.paie, changeOrigin: true }))
-app.use('/api/conges', createProxyMiddleware({ target: TARGETS.conges, changeOrigin: true }))
+const proxyOptions = (target) => ({
+  target,
+  changeOrigin: true,
+  pathRewrite: { '^/api': '' },
+})
+
+app.use('/api/auth', createProxyMiddleware(proxyOptions(TARGETS.auth)))
+app.use('/api/paie', createProxyMiddleware(proxyOptions(TARGETS.paie)))
+app.use('/api/conges', createProxyMiddleware(proxyOptions(TARGETS.conges)))
 if (FEATURE_RECRUITMENT_ENABLED) {
-  app.use('/api/recrutement', createProxyMiddleware({ target: TARGETS.recrutement, changeOrigin: true }))
+  app.use('/api/recrutement', createProxyMiddleware(proxyOptions(TARGETS.recrutement)))
 }
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))

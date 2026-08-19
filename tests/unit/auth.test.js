@@ -160,45 +160,23 @@ describe('POST /auth/login — rejets', () => {
   })
 })
 
-describe('POST /auth/login — défauts connus non corrigés', () => {
-  test('VULN-01 : l’email est concaténé dans la requête SQL (injection possible)', async () => {
+describe('POST /auth/login — sécurité', () => {
+  test('utilise une requête paramétrée pour l’email fourni', async () => {
     pool.query.mockResolvedValue({ rows: [] })
+
+    const email = "' OR '1'='1"
 
     await request(app)
       .post('/auth/login')
       .send({
-        email: "' OR '1'='1",
+        email,
         password: 'peu importe',
       })
 
     const [sql, params] = pool.query.mock.calls[0]
 
-    expect(sql).toContain(
-      "WHERE email = '' OR '1'='1'"
-    )
-
-    expect(params).toBeUndefined()
-  })
-
-  test('VULN-01 : une injection renvoyant une ligne délivre un JWT valide sans mot de passe correct', async () => {
-    pool.query.mockResolvedValue({
-      rows: [
-        {
-          ...USER_RH,
-          password_hash: HASH_PASSWORD123,
-        },
-      ],
-    })
-
-    const res = await request(app)
-      .post('/auth/login')
-      .send({
-        email: "' OR '1'='1",
-        password: 'Password123!',
-      })
-
-    expect(res.status).toBe(200)
-    expect(res.body.token).toBeDefined()
+    expect(sql).toBe('SELECT * FROM users WHERE email = $1')
+    expect(params).toEqual([email])
   })
 
   test('SECURITY : sans JWT_SECRET, aucun secret codé en dur n’est utilisé', async () => {

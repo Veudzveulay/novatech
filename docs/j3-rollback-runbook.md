@@ -87,3 +87,23 @@ La démonstration réussit uniquement si :
 - poids des target groups avant, pendant et après le rollback ;
 - réponses `/health` Blue et Green, sans header d'autorisation ni secret ;
 - résultat final et durée calculée, même si l'objectif échoue.
+
+## Exécution réelle du workshop — 19 août 2026
+
+La démonstration retenue a utilisé une nouvelle révision saine et fonctionnellement
+identique du frontend plutôt qu'une image volontairement défaillante. ECS native
+Blue/Green a coexisté avec les deux révisions pendant le bake time de 5 minutes,
+puis la révision précédente a été restaurée volontairement.
+
+- déploiement contrôlé vers `novatech-production-frontend-task:2` : `502,7 s`,
+  avec 31/31 sondes HTTP à `200` ;
+- rollback vers `novatech-production-frontend-task:1` : `503,1 s`, avec 32/32
+  sondes HTTP à `200` ;
+- seuil J3 : `503,1 s < 600 s`, donc rollback inférieur à 10 minutes ;
+- disponibilité : aucune interruption observée pendant ou après le rollback ;
+- état final : révision saine `:1`, rollout `COMPLETED`, une tâche active sur
+  une tâche désirée.
+
+La détection et le rollback automatiques par alarme d'une image défaillante
+restent une variante documentée mais non exécutée afin de ne pas introduire une
+panne volontaire dans la production du workshop.

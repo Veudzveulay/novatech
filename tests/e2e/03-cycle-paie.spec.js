@@ -70,10 +70,9 @@ test.describe('Parcours 3 — Cycle de paie', () => {
     expect(second.status()).toBe(200)
   })
 
-  test('VULN-04 : la route de migration reste accessible sans authentification', async ({ request }) => {
+  test('VULN-04 corrigée : la route de migration n’est plus exposée', async ({ request }) => {
     const reponse = await request.post(`${PAIE}/paie/migrate`, { data: {} })
 
-    expect(reponse.status()).toBe(200)
-    expect(await reponse.json()).toEqual({ success: true })
+    expect(reponse.status()).toBe(404)
   })
 })

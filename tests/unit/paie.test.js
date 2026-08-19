@@ -316,44 +316,12 @@ describe('POST /paie/heures-sup — régression d’avril 2024', () => {
 })
 
 describe('POST /paie/migrate', () => {
-  test('exécute la migration et retourne un succès', async () => {
-    pool.query.mockResolvedValue({ rows: [] })
-
+  test('n’est plus exposée par le service', async () => {
     const res = await request(app)
       .post('/paie/migrate')
       .send({})
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ success: true })
-  })
-
-  test('VULN-04 : la route de migration est ouverte, sans authentification', async () => {
-    pool.query.mockResolvedValue({ rows: [] })
-
-    const res = await request(app)
-      .post('/paie/migrate')
-      .send({})
-
-    expect(res.status).toBe(200)
-
-    const sql = pool.query.mock.calls[0][0]
-
-    expect(sql).toContain('ALTER TABLE employees')
-    expect(sql).toContain('UPDATE employees SET updated_at = NOW()')
-  })
-
-  test('remonte un 500 avec le message d’erreur brut si la migration échoue', async () => {
-    pool.query.mockRejectedValue(
-      new Error('permission denied for table employees')
-    )
-
-    const res = await request(app)
-      .post('/paie/migrate')
-      .send({})
-
-    expect(res.status).toBe(500)
-    expect(res.body.error).toBe(
-      'permission denied for table employees'
-    )
+    expect(res.status).toBe(404)
+    expect(pool.query).not.toHaveBeenCalled()
   })
 })

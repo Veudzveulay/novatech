@@ -45,6 +45,13 @@ variable "container_port" {
   type        = number
 }
 
+variable "container_user" {
+  description = "Utilisateur facultatif utilise pour demarrer le conteneur."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 variable "cpu" {
   description = "Unites CPU Fargate de la task definition."
   type        = number

@@ -18,6 +18,21 @@ variable "aws_region" {
   type        = string
 }
 
+variable "certificate_arn" {
+  description = "ARN facultatif du certificat ACM staging. Null active le mode HTTP uniquement."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = (
+      var.certificate_arn == null ||
+      can(regex("^arn:[^:]+:acm:[^:]+:[0-9]{12}:certificate/.+$", var.certificate_arn))
+    )
+    error_message = "certificate_arn doit etre null ou contenir un ARN de certificat ACM valide."
+  }
+}
+
 variable "vpc_cidr" {
   description = "Plage CIDR prévue pour le VPC de staging."
   type        = string
