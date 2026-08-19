@@ -7,6 +7,8 @@ locals {
     ManagedBy   = "Terraform"
   }
 
+  application_listener_arn = var.certificate_arn == null ? aws_lb_listener.http.arn : aws_lb_listener.https[0].arn
+
   target_groups = {
     frontend-blue = {
       component   = "frontend"
@@ -84,13 +86,31 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type = "redirect"
+  dynamic "default_action" {
+    for_each = var.certificate_arn == null ? [] : [1]
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    content {
+      type = "redirect"
+
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.certificate_arn == null ? [1] : []
+
+    content {
+      type = "fixed-response"
+
+      fixed_response {
+        content_type = "text/plain"
+        message_body = "Not found"
+        status_code  = "404"
+      }
     }
   }
 
@@ -98,6 +118,8 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_lb_listener" "https" {
+  count = var.certificate_arn == null ? 0 : 1
+
   load_balancer_arn = aws_lb.this.arn
   port              = 443
   protocol          = "HTTPS"
@@ -118,7 +140,7 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_listener_rule" "api_gateway" {
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = local.application_listener_arn
   priority     = 100
 
   action {
@@ -151,7 +173,7 @@ resource "aws_lb_listener_rule" "api_gateway" {
 }
 
 resource "aws_lb_listener_rule" "api_gateway_preview" {
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = local.application_listener_arn
   priority     = 10
 
   action {
@@ -191,7 +213,7 @@ resource "aws_lb_listener_rule" "api_gateway_preview" {
 }
 
 resource "aws_lb_listener_rule" "frontend" {
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = local.application_listener_arn
   priority     = 200
 
   action {
@@ -224,7 +246,7 @@ resource "aws_lb_listener_rule" "frontend" {
 }
 
 resource "aws_lb_listener_rule" "frontend_preview" {
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = local.application_listener_arn
   priority     = 20
 
   action {

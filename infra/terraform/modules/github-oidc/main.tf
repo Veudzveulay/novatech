@@ -65,7 +65,7 @@ resource "aws_iam_role" "github_deploy" {
 }
 
 resource "aws_iam_role_policy" "github_deploy" {
-  name = "${var.project_name}-github-deploy"
+  name = "${var.project_name}-github-deploy-policy"
   role = aws_iam_role.github_deploy.id
 
   policy = jsonencode({

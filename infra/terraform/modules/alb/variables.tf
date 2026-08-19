@@ -53,13 +53,17 @@ variable "alb_security_group_id" {
 }
 
 variable "certificate_arn" {
-  description = "ARN du certificat ACM pour le listener HTTPS de l'ALB."
+  description = "ARN facultatif du certificat ACM. Sans valeur, l'ALB reste accessible en HTTP uniquement."
   type        = string
-  default     = "arn:aws:acm:eu-west-3:000000000000:certificate/example"
+  default     = null
+  nullable    = true
 
   validation {
-    condition     = length(trimspace(var.certificate_arn)) > 0
-    error_message = "certificate_arn ne doit pas etre vide."
+    condition = (
+      var.certificate_arn == null ||
+      can(regex("^arn:[^:]+:acm:[^:]+:[0-9]{12}:certificate/.+$", var.certificate_arn))
+    )
+    error_message = "certificate_arn doit etre null ou contenir un ARN de certificat ACM valide."
   }
 }
 
