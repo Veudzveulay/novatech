@@ -1,7 +1,9 @@
 const express = require('express')
 const { createProxyMiddleware } = require('http-proxy-middleware')
+const { createMetrics } = require('./metrics')
 
 const app = express()
+const metrics = createMetrics('api-gateway')
 
 const TARGETS = {
   auth: process.env.AUTH_SERVICE_URL || process.env.AUTH_URL || 'http://localhost:3001',
@@ -47,6 +49,11 @@ app.use((req, res, next) => {
   next()
 })
 
+// Mesure toutes les requêtes traversant la passerelle, y compris celles
+// proxifiées : l'événement 'finish' de la réponse se déclenche même quand
+// http-proxy-middleware a terminé la réponse.
+app.use(metrics.middleware)
+
 const proxyOptions = (target) => ({
   target,
   changeOrigin: true,
@@ -61,6 +68,8 @@ if (FEATURE_RECRUITMENT_ENABLED) {
 }
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
+
+app.get('/metrics', metrics.handler)
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' })

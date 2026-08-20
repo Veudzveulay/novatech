@@ -1,13 +1,18 @@
 const express = require('express')
 const { pool } = require('./db')
+const { createMetrics } = require('./metrics')
 
 const app = express()
+const metrics = createMetrics('conges')
 
 app.use(express.json())
+app.use(metrics.middleware)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+app.get('/metrics', metrics.handler)
 
 app.get('/conges/solde/:employeeId', async (req, res) => {
   const { employeeId } = req.params

@@ -1,14 +1,19 @@
 const express = require('express')
 const multer = require('multer')
 const { pool } = require('./db')
+const { createMetrics } = require('./metrics')
 
 const app = express()
+const metrics = createMetrics('recrutement')
 
 app.use(express.json())
+app.use(metrics.middleware)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+app.get('/metrics', metrics.handler)
 
 // Upload CV
 const storage = multer.diskStorage({

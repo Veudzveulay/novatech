@@ -2,15 +2,21 @@ const express = require('express')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
 const { pool } = require('./db')
+const { createMetrics } = require('./metrics')
 
 const app = express()
+const metrics = createMetrics('auth')
 
 app.use(express.json())
+app.use(metrics.middleware)
 
 // Health check utilisé par ECS / ALB
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+// Exposition des métriques Prometheus (scrapé par le stack de monitoring L4)
+app.get('/metrics', metrics.handler)
 
 // Login
 app.post('/auth/login', async (req, res) => {
