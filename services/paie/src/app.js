@@ -1,14 +1,19 @@
 const express = require('express')
 const axios = require('axios')
 const { pool } = require('./db')
+const { createMetrics } = require('./metrics')
 
 const app = express()
+const metrics = createMetrics('paie')
 
 app.use(express.json())
+app.use(metrics.middleware)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+app.get('/metrics', metrics.handler)
 
 app.post('/paie/calculer', async (req, res) => {
   const { employeeId, mois, annee } = req.body
