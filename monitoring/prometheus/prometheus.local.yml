@@ -1,0 +1,58 @@
+# Prometheus — variante LOCALE (démo / captures pour la soutenance).
+#
+# Identique à prometheus.yml mais scrape les services lancés sur la machine
+# hôte (node services/<svc>/src/server.js) au lieu des DNS Cloud Map du VPC,
+# qui ne sont pas résolvables en local.
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    projet: hrflow
+
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: hrflow-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:3000
+          - host.docker.internal:3001
+          - host.docker.internal:3002
+          - host.docker.internal:3003
+          - host.docker.internal:3004
+        labels:
+          env: local
+    relabel_configs:
+      # Dérive un label service lisible depuis le port local.
+      - source_labels: [__address__]
+        regex: '.*:3000'
+        target_label: service
+        replacement: api-gateway
+      - source_labels: [__address__]
+        regex: '.*:3001'
+        target_label: service
+        replacement: auth
+      - source_labels: [__address__]
+        regex: '.*:3002'
+        target_label: service
+        replacement: paie
+      - source_labels: [__address__]
+        regex: '.*:3003'
+        target_label: service
+        replacement: conges
+      - source_labels: [__address__]
+        regex: '.*:3004'
+        target_label: service
+        replacement: recrutement

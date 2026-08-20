@@ -1,0 +1,59 @@
+# Règles d'alerte HRFlow (L4) — les 4 golden signals + le service mort.
+#
+# Chaque alerte cite le golden signal couvert. L'alerte ServiceDown est la
+# traduction directe de BUG-01 (déni de service silencieux découvert au L2) :
+# un service dont le processus meurt ne répond plus au scrape → up == 0.
+
+groups:
+  - name: hrflow-golden-signals
+    rules:
+      # ── Saturation / disponibilité — couvre BUG-01 ────────────────────────
+      - alert: ServiceDown
+        expr: up{job="hrflow-services"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Service {{ $labels.service }} injoignable ({{ $labels.env }})'
+          description: >-
+            Prometheus ne scrape plus {{ $labels.instance }} depuis 1 min.
+            Cause probable : processus arrêté (cf. BUG-01, erreur async non
+            gérée). Voir docs/runbook-incident-p1.md.
+
+      # ── Erreurs ───────────────────────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: >-
+          sum by (service, env) (rate(http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum by (service, env) (rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Taux d''erreur 5xx > 5 % sur {{ $labels.service }} ({{ $labels.env }})'
+          description: 'Plus de 5 % des requêtes renvoient une erreur serveur sur 5 min.'
+
+      # ── Latence ───────────────────────────────────────────────────────────
+      - alert: HighLatencyP99
+        expr: >-
+          histogram_quantile(
+            0.99,
+            sum by (service, env, le) (rate(http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Latence P99 > 1 s sur {{ $labels.service }} ({{ $labels.env }})'
+          description: 'Le 99e centile de latence dépasse 1 s depuis 5 min.'
+
+      # ── Saturation (event loop Node) ──────────────────────────────────────
+      - alert: EventLoopLagHigh
+        expr: nodejs_eventloop_lag_seconds{job="hrflow-services"} > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Event loop saturé sur {{ $labels.service }} ({{ $labels.env }})'
+          description: 'Lag de l''event loop > 200 ms : le service ne suit plus la charge.'

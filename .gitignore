@@ -28,3 +28,5 @@ npm-audit.html
 gitleaks-report.sarif
 trivy-fs.sarif
 zap-report/
+# Monitoring — secret Slack (jamais commité)
+monitoring/alertmanager/slack_webhook_url

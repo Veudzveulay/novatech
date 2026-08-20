@@ -1,0 +1,53 @@
+# Prometheus — HRFlow (L4)
+#
+# Scrape les endpoints /metrics exposés par les services (instrumentation
+# prom-client, PR #7). Les cibles sont les noms DNS internes Cloud Map fournis
+# par l'infra L3 : Prometheus DOIT tourner dans le même VPC pour les résoudre.
+#
+# L'API Gateway n'a pas de DNS Cloud Map interne (joignable seulement via
+# l'ALB public) : elle est volontairement absente ici — voir monitoring/README.md
+# § « API Gateway ». À rescraper dès qu'elle est ajoutée au namespace interne.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    projet: hrflow
+
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: hrflow-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - auth.staging.novatech.local:3001
+          - paie.staging.novatech.local:3002
+          - conges.staging.novatech.local:3003
+          - recrutement.staging.novatech.local:3004
+        labels:
+          env: staging
+      - targets:
+          - auth.production.novatech.local:3001
+          - paie.production.novatech.local:3002
+          - conges.production.novatech.local:3003
+          - recrutement.production.novatech.local:3004
+        labels:
+          env: production
+    # Le label `service` est déjà émis par l'application (prom-client
+    # setDefaultLabels). On dérive un label lisible depuis l'adresse cible.
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^.]+)\..*'
+        target_label: service
+        replacement: '$1'

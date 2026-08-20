@@ -1,0 +1,42 @@
+# Alertmanager — HRFlow (L4)
+#
+# Route toutes les alertes vers un canal Slack via webhook entrant.
+# L'URL du webhook n'est JAMAIS en clair ici : elle est injectée au démarrage
+# par la variable d'environnement SLACK_WEBHOOK_URL (cf. docker-compose et,
+# en prod, un secret ECS / Secrets Manager).
+
+global:
+  resolve_timeout: 5m
+  # Lu depuis l'environnement — voir monitoring/README.md.
+  slack_api_url_file: /etc/alertmanager/slack_webhook_url
+
+route:
+  receiver: slack-hrflow
+  group_by: ['alertname', 'service', 'env']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Les alertes critiques (service mort) sont notifiées sans regroupement lent.
+    - matchers:
+        - severity="critical"
+      receiver: slack-hrflow
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: slack-hrflow
+    slack_configs:
+      - channel: '#hrflow-alertes'
+        send_resolved: true
+        title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity }}] {{ .CommonLabels.alertname }}'
+        text: >-
+          {{ range .Alerts }}*{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          {{ end }}
+
+inhibit_rules:
+  # Si un service est down, on n'inonde pas avec ses alertes de latence/erreur.
+  - source_matchers: [severity="critical"]
+    target_matchers: [severity="warning"]
+    equal: ['service', 'env']

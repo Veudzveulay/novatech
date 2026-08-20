@@ -1,0 +1,51 @@
+# Stack de monitoring HRFlow (L4) — exécutable en local pour la démo.
+#
+# Démarrage :
+#   1. lancer les 5 services en local (node services/<svc>/src/server.js)
+#   2. cp alertmanager/slack_webhook_url.example alertmanager/slack_webhook_url
+#      puis y coller l'URL du webhook Slack
+#   3. docker compose -f monitoring/docker-compose.monitoring.yml up -d
+#
+# Accès : Prometheus http://localhost:9090 · Grafana http://localhost:3080
+#         (admin / admin) · Alertmanager http://localhost:9093
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: hrflow-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=6h
+    volumes:
+      # Config LOCALE : scrape les services sur la machine hôte.
+      - ./prometheus/prometheus.local.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    ports:
+      - '9090:9090'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: hrflow-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/slack_webhook_url:/etc/alertmanager/slack_webhook_url:ro
+    ports:
+      - '9093:9093'
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: hrflow-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - '3080:3000'
+    depends_on:
+      - prometheus
