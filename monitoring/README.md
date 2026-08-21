@@ -38,13 +38,12 @@ Noms DNS internes Cloud Map, résolvables uniquement **dans le VPC** :
 | conges | 3003 | `conges.staging.novatech.local` | `conges.production.novatech.local` |
 | recrutement | 3004 | `recrutement.staging.novatech.local` | `recrutement.production.novatech.local` |
 
-### API Gateway — non scrapée pour l'instant
+### API Gateway — non scrapée (angle mort assumé)
 
-La passerelle (port 3000) n'a **pas de DNS Cloud Map interne** : elle n'est
-joignable que via l'ALB public. Elle est donc absente de `prometheus.yml`.
-Deux options, à trancher avec l'infra :
-1. l'ajouter au namespace Cloud Map interne (recommandé) → une ligne de cible ;
-2. la scraper via l'ALB — déconseillé, ça expose `/metrics` publiquement.
+La passerelle (port 3000) n'est pas scrapée : **l'association à Cloud Map n'est
+pas supportée sous ECS Blue/Green** (confirmé par l'infra). Les 4 services
+métier — qui portent la logique et les incidents — sont couverts ; scraper la
+passerelle via l'ALB public exposerait `/metrics`, ce qu'on refuse.
 
 ## Démo locale (pour la soutenance)
 
