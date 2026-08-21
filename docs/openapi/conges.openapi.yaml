@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: HRFlow — Service Congés
+  version: 1.0.0
+  description: >
+    Consultation du solde de congés et dépôt de demandes. Publiquement atteint
+    via la passerelle sous `/api/conges`.
+servers:
+  - url: http://localhost:3003
+    description: Développement local (service direct)
+  - url: http://conges.staging.novatech.local:3003
+    description: Staging (DNS interne Cloud Map, VPC)
+  - url: http://conges.production.novatech.local:3003
+    description: Production (DNS interne Cloud Map, VPC)
+tags:
+  - name: Congés
+  - name: Observabilité
+paths:
+  /conges/solde/{employeeId}:
+    get:
+      tags: [Congés]
+      summary: Solde de congés d'un employé
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Solde calculé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Solde'
+  /conges/demande:
+    post:
+      tags: [Congés]
+      summary: Dépose une demande de congé (statut « en_attente »)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employeeId, dateDebut, dateFin]
+              properties:
+                employeeId:
+                  type: integer
+                  example: 1
+                dateDebut:
+                  type: string
+                  format: date
+                  example: '2026-09-07'
+                dateFin:
+                  type: string
+                  format: date
+                  example: '2026-09-11'
+                motif:
+                  type: string
+                  example: Congé automne
+      responses:
+        '200':
+          description: Demande créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conge'
+  /health:
+    get:
+      tags: [Observabilité]
+      summary: Sonde de vivacité (ECS / ALB)
+      responses:
+        '200':
+          description: Service vivant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metrics:
+    get:
+      tags: [Observabilité]
+      summary: Métriques Prometheus
+      responses:
+        '200':
+          description: Exposition des métriques
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Solde:
+      type: object
+      properties:
+        solde:
+          type: integer
+          description: Jours acquis moins jours pris (les jours en attente ne sont pas déduits)
+          example: 20
+        joursAcquis:
+          type: integer
+          example: 25
+        joursPris:
+          type: integer
+          example: 5
+        joursEnAttente:
+          type: integer
+          example: 3
+    Conge:
+      type: object
+      properties:
+        id:
+          type: integer
+        employee_id:
+          type: integer
+        date_debut:
+          type: string
+          format: date
+        date_fin:
+          type: string
+          format: date
+        nombre_jours:
+          type: integer
+        motif:
+          type: string
+        statut:
+          type: string
+          example: en_attente
+        created_at:
+          type: string
+          format: date-time

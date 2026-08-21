@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: HRFlow — Service Recrutement
+  version: 1.0.0
+  description: >
+    Dépôt de candidatures avec CV, consultation et suivi du statut. Publiquement
+    atteint via la passerelle sous `/api/recrutement`. Cette route peut être
+    coupée par le feature flag `FEATURE_RECRUITMENT_ENABLED=false` au niveau de
+    la passerelle.
+servers:
+  - url: http://localhost:3004
+    description: Développement local (service direct)
+  - url: http://recrutement.staging.novatech.local:3004
+    description: Staging (DNS interne Cloud Map, VPC)
+  - url: http://recrutement.production.novatech.local:3004
+    description: Production (DNS interne Cloud Map, VPC)
+tags:
+  - name: Recrutement
+  - name: Observabilité
+paths:
+  /recrutement/candidat:
+    post:
+      tags: [Recrutement]
+      summary: Dépose une candidature avec CV
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                nom:
+                  type: string
+                prenom:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                poste:
+                  type: string
+                cv:
+                  type: string
+                  format: binary
+                  description: Fichier du CV
+      responses:
+        '200':
+          description: Candidature enregistrée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidat'
+  /recrutement/candidats:
+    get:
+      tags: [Recrutement]
+      summary: Liste des candidatures (plus récentes d'abord)
+      responses:
+        '200':
+          description: Liste des candidats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Candidat'
+  /recrutement/candidat/{id}/statut:
+    patch:
+      tags: [Recrutement]
+      summary: Met à jour le statut d'un candidat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statut]
+              properties:
+                statut:
+                  type: string
+                  example: entretien
+      responses:
+        '200':
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+  /health:
+    get:
+      tags: [Observabilité]
+      summary: Sonde de vivacité (ECS / ALB)
+      responses:
+        '200':
+          description: Service vivant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metrics:
+    get:
+      tags: [Observabilité]
+      summary: Métriques Prometheus
+      responses:
+        '200':
+          description: Exposition des métriques
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Candidat:
+      type: object
+      properties:
+        id:
+          type: integer
+        nom:
+          type: string
+        prenom:
+          type: string
+        email:
+          type: string
+          format: email
+        poste:
+          type: string
+        cv_path:
+          type: string
+        statut:
+          type: string
+          example: nouveau
+        created_at:
+          type: string
+          format: date-time

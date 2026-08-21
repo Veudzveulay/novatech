@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HRFlow — Documentation API</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css" />
+    <style>
+      body { margin: 0; }
+      .topbar { background: #1b1f24; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" crossorigin></script>
+    <script>
+      window.onload = () => {
+        // Sélecteur des 4 services : un OpenAPI par service.
+        window.ui = SwaggerUIBundle({
+          urls: [
+            { name: 'Auth', url: './auth.openapi.yaml' },
+            { name: 'Paie', url: './paie.openapi.yaml' },
+            { name: 'Congés', url: './conges.openapi.yaml' },
+            { name: 'Recrutement', url: './recrutement.openapi.yaml' },
+          ],
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis],
+          layout: 'BaseLayout',
+        })
+      }
+    </script>
+  </body>
+</html>
