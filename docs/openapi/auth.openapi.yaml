@@ -1,0 +1,171 @@
+openapi: 3.0.3
+info:
+  title: HRFlow — Service Auth
+  version: 1.0.0
+  description: >
+    Authentification des utilisateurs HRFlow (émission et vérification de jetons
+    JWT). Les chemins ci-dessous sont ceux du service. Publiquement, ils sont
+    atteints via la passerelle sous le préfixe `/api/auth` (l'API Gateway retire
+    `/api` avant de relayer).
+servers:
+  - url: http://localhost:3001
+    description: Développement local (service direct)
+  - url: http://auth.staging.novatech.local:3001
+    description: Staging (DNS interne Cloud Map, VPC)
+  - url: http://auth.production.novatech.local:3001
+    description: Production (DNS interne Cloud Map, VPC)
+tags:
+  - name: Authentification
+  - name: Observabilité
+paths:
+  /auth/login:
+    post:
+      tags: [Authentification]
+      summary: Connexion d'un utilisateur
+      description: Vérifie les identifiants et renvoie un jeton JWT valable 24 h.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: rh@novatech.io
+              password: Password123!
+      responses:
+        '200':
+          description: Authentification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Identifiants invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Invalid credentials
+        '503':
+          description: Service non configuré (JWT_SECRET absent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Authentication service unavailable
+  /auth/verify:
+    post:
+      tags: [Authentification]
+      summary: Vérification d'un jeton
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Jeton valide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/TokenPayload'
+        '401':
+          description: Jeton invalide ou expiré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: false
+  /health:
+    get:
+      tags: [Observabilité]
+      summary: Sonde de vivacité (utilisée par ECS / ALB)
+      responses:
+        '200':
+          description: Service vivant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metrics:
+    get:
+      tags: [Observabilité]
+      summary: Métriques Prometheus
+      description: Format texte Prometheus, scrapé par le stack de monitoring (L4).
+      responses:
+        '200':
+          description: Exposition des métriques
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT signé, valable 24 h
+        user:
+          $ref: '#/components/schemas/UserPublic'
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          example: rh@novatech.io
+        role:
+          type: string
+          example: rh
+    TokenPayload:
+      type: object
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+        email:
+          type: string
+        iat:
+          type: integer
+        exp:
+          type: integer
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

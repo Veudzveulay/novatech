@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: HRFlow — Service Paie
+  version: 1.0.0
+  description: >
+    Calcul des bulletins de paie et des heures supplémentaires. Publiquement
+    atteint via la passerelle sous `/api/paie`.
+servers:
+  - url: http://localhost:3002
+    description: Développement local (service direct)
+  - url: http://paie.staging.novatech.local:3002
+    description: Staging (DNS interne Cloud Map, VPC)
+  - url: http://paie.production.novatech.local:3002
+    description: Production (DNS interne Cloud Map, VPC)
+tags:
+  - name: Paie
+  - name: Observabilité
+paths:
+  /paie/calculer:
+    post:
+      tags: [Paie]
+      summary: Génère le bulletin de paie d'un employé
+      description: >
+        Calcule le bulletin (cotisations 22 % salariales, 42 % patronales),
+        le persiste, puis tente un versement Stripe si configuré.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employeeId, mois, annee]
+              properties:
+                employeeId:
+                  type: integer
+                  example: 1
+                mois:
+                  type: integer
+                  minimum: 1
+                  maximum: 12
+                  example: 7
+                annee:
+                  type: integer
+                  example: 2026
+      responses:
+        '200':
+          description: Bulletin généré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bulletin'
+        '404':
+          description: Employé introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Employee not found
+  /paie/heures-sup:
+    post:
+      tags: [Paie]
+      summary: Calcule la majoration des heures supplémentaires (25 %)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employeeId, heures]
+              properties:
+                employeeId:
+                  type: integer
+                  example: 1
+                heures:
+                  type: number
+                  example: 10
+      responses:
+        '200':
+          description: Majoration calculée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  heures:
+                    type: number
+                  tauxHoraire:
+                    type: number
+                    description: Salaire mensuel brut / 151,67
+                  majorationHeuresSup:
+                    type: number
+                  total:
+                    type: number
+  /health:
+    get:
+      tags: [Observabilité]
+      summary: Sonde de vivacité (ECS / ALB)
+      responses:
+        '200':
+          description: Service vivant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metrics:
+    get:
+      tags: [Observabilité]
+      summary: Métriques Prometheus
+      responses:
+        '200':
+          description: Exposition des métriques
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Bulletin:
+      type: object
+      properties:
+        employeeId:
+          type: integer
+        mois:
+          type: integer
+        annee:
+          type: integer
+        brut:
+          type: number
+          example: 3000
+        cotisationsSalariales:
+          type: number
+          example: 660
+        cotisationsPatronales:
+          type: number
+          example: 1260
+        net:
+          type: number
+          example: 2340
+        generatedAt:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
