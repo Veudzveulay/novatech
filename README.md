@@ -473,3 +473,23 @@ compte ou valeur de secret.
 Ce README décrit l'état versionné. Les preuves d'exécution — pipeline vert,
 ressources AWS actives, captures et métriques — doivent être datées, sans secret
 et conservées séparément lorsqu'elles sont produites.
+
+## Contributeurs
+
+Projet réalisé dans le cadre du BC03 — ShipIt, M2 Lead Dev Full Stack.
+
+- **Anna-Merveille KAYA** — Infrastructure Cloud, déploiement AWS, Terraform, Blue/Green, rollback, feature flags et documentation.
+- **Lucas DEVELAY** — Tests & Qualité, couverture, monitoring Prometheus/Grafana/Alertmanager, OpenAPI/Swagger et runbook incident.
+- **JAKUBOWICZ Lea** — Audit & Architecture du pipeline, stratégie Git, architecture CI/CD en 5 stages, Dockerfiles multi-stage et workflow GitHub Actions Build/Lint/Type-check.
+
+### Répartition principale des livrables
+
+- **J1 — Audit & Architecture du pipeline** : JAKUBOWICZ Lea
+- **J2 — Tests & Qualité** : Lucas DEVELAY
+- **J3 — Infra Cloud & Déploiement** : Anna-Merveille KAYA
+- **J4 — Monitoring, OpenAPI & Runbook** : Lucas DEVELAY
+- **J5 — Documentation finale / README** : contribution collective, finalisation par Anna-Merveille KAYA
+
+---
+
+**Dernière mise à jour : 26 août 2026**
